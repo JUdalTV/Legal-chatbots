@@ -1,308 +1,379 @@
 """
-NER extractor for Actor nodes:
-- CoQuanNhaNuoc
-- DoanhNghiep
-- ToChucKhac
-- ChucDanh
-"""
+ner_extractor.py — Wrapper cho NER fine-tuned model (NlpHUST/electra-vi).
 
+Pipeline ĐÚNG với khi train (xem notebooks/finetune_ner.ipynb §12):
+    raw text
+      → underthesea.word_tokenize  (giữ '_' cho từ ghép)
+      → merge_tokens               (gộp số+đơn vị, struct, standards…)
+      → tokenizer(is_split_into_words=True)
+      → model.argmax → BIO → merge entity → replace '_'→' '
+
+Output mỗi entity:
+    {
+      "type":           "LEGAL_ACTOR",
+      "text":           "doanh nghiệp viễn thông",
+      "score":          0.987,
+      "char_start":     12,        # vị trí trong text gốc
+      "char_end":       35,
+      "sentence_idx":   0,         # index câu trong chunk (0-based)
+      "source":         "model",   # | "rule" | "whitelist"
+      "subclass":       "TELECOM_OPERATOR"  # optional
+    }
+"""
 from __future__ import annotations
 
-import argparse
 import json
-import os
 import re
-import sys
-import unicodedata
-from collections import Counter
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
+import torch
+from transformers import AutoModelForTokenClassification, AutoTokenizer
+from underthesea import word_tokenize as _ut_word_tokenize
 
-CO_QUAN_KW = {
-    "bộ", "cục", "tổng cục", "vụ", "ủy ban", "chính phủ", "quốc hội",
-    "viện", "tòa án", "kiểm sát", "nhà nước", "sở", "phòng", "ban",
-    "trung tâm", "văn phòng", "thanh tra", "cơ quan", "lực lượng",
+
+# ── Default config ───────────────────────────────────────────────────
+_DEFAULT_MODEL_DIR = Path(__file__).resolve().parents[2] / "models"
+MAX_LENGTH         = 512
+SCORE_THRESHOLD    = 0.5
+
+
+# =====================================================================
+# Tokenization (must match train pipeline)
+# =====================================================================
+_TIME_UNITS   = {"giờ", "ngày", "tháng", "năm", "tuần", "phút", "giây"}
+_MONEY_UNITS  = {"triệu", "tỷ", "nghìn", "trăm"}
+_TECH_UNITS   = {"Gbps", "Mbps", "MB", "GB", "TB", "KB", "GHz", "MHz", "ms", "bps"}
+_CURRENCIES   = {"USD", "EUR", "VND", "GBP", "JPY"}
+_STRUCT_WORDS = {"Điều", "Khoản", "Điểm", "Mục", "Chương", "Phần"}
+_STANDARDS    = {"ISO", "IEC", "NIST", "OWASP", "CWE", "CVE", "CVSS",
+                 "PCI", "ETSI", "TCVN", "QCVN"}
+
+
+def merge_tokens(tokens: list[str]) -> list[str]:
+    """Gộp các token nhỏ thành cụm đơn nhất (số+đơn vị, struct+số, standard+code)."""
+    out, i, n = [], 0, len(tokens)
+    digit = re.compile(r"^\d[\d,\.]*$")
+    while i < n:
+        t = tokens[i]
+        nxt = tokens[i + 1] if i + 1 < n else None
+        # số + thời gian (kèm "làm_việc")
+        if nxt and digit.match(t) and nxt in _TIME_UNITS:
+            m = f"{t}_{nxt}"; i += 2
+            if i < n and tokens[i] == "làm_việc":
+                m += "_làm_việc"; i += 1
+            out.append(m); continue
+        # số + tiền (kèm "đồng")
+        if nxt and digit.match(t) and nxt in _MONEY_UNITS:
+            m = f"{t}_{nxt}"; i += 2
+            if i < n and tokens[i] == "đồng":
+                m += "_đồng"; i += 1
+            out.append(m); continue
+        # số + %
+        if nxt and digit.match(t) and nxt == "%":
+            out.append(f"{t}%"); i += 2; continue
+        # số + tech / currency / lần
+        if nxt and digit.match(t) and nxt in _TECH_UNITS:
+            out.append(f"{t}_{nxt}"); i += 2; continue
+        if nxt and digit.match(t) and nxt in _CURRENCIES:
+            out.append(f"{t}_{nxt}"); i += 2; continue
+        if nxt and re.match(r"^\d+$", t) and nxt == "lần":
+            out.append(f"{t}_lần"); i += 2; continue
+        # struct + số/chữ cái
+        if t in _STRUCT_WORDS and nxt and re.match(r"^\d+$|^[a-zđ]$", nxt):
+            out.append(f"{t}_{nxt}"); i += 2; continue
+        # standards
+        if t in _STANDARDS and nxt:
+            if re.match(r"^\d[\d\-\.]*$|^SP$|^DSS$|^MASVS$", nxt):
+                m = f"{t}_{nxt}"; i += 2
+                if i + 1 < n and tokens[i] == ":" and re.match(r"^\d+$", tokens[i + 1]):
+                    m += f":{tokens[i + 1]}"; i += 2
+                out.append(m); continue
+            if nxt == "/" and i + 2 < n and tokens[i + 2] in _STANDARDS:
+                m = f"{t}/{tokens[i + 2]}"; i += 3
+                if i < n and re.match(r"^\d[\d\-\.]*$", tokens[i]):
+                    m += f"_{tokens[i]}"; i += 1
+                out.append(m); continue
+        # CVE-YYYY-NNNN
+        if t == "CVE" and nxt == "-" and i + 2 < n and re.match(r"^\d{4}$", tokens[i + 2]):
+            m = f"CVE-{tokens[i + 2]}"; i += 3
+            if i + 1 < n and tokens[i] == "-":
+                m += f"-{tokens[i + 1]}"; i += 2
+            out.append(m); continue
+        # Tier I / II / 1
+        if t == "Tier" and nxt and re.match(r"^(I{1,3}|IV|V|\d+)$", nxt):
+            out.append(f"Tier_{nxt}"); i += 2; continue
+        # cấp độ N
+        if t == "cấp" and nxt in ("độ", "_độ") and i + 2 < n and re.match(r"^\d+$", tokens[i + 2]):
+            out.append(f"cấp_độ_{tokens[i + 2]}"); i += 3; continue
+        out.append(t); i += 1
+    return out
+
+
+def word_tokenize(text: str) -> list[str]:
+    return merge_tokens(_ut_word_tokenize(text, format="text").split())
+
+
+# =====================================================================
+# Sentence splitter — theo dấu kết câu, tránh "Đ.", "Khoản 1.", v.v.
+# =====================================================================
+_SENT_SPLIT = re.compile(r"(?<=[\.!?\?])\s+(?=[A-ZĐÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂŨƠƯ\d])")
+
+
+def split_sentences(text: str) -> list[tuple[int, int, str]]:
+    """Trả list (char_start, char_end, sentence_text)."""
+    out = []
+    pos = 0
+    for piece in _SENT_SPLIT.split(text):
+        if not piece.strip():
+            continue
+        idx = text.find(piece, pos)
+        if idx < 0:
+            idx = pos
+        out.append((idx, idx + len(piece), piece))
+        pos = idx + len(piece)
+    return out
+
+
+def _sentence_idx_of(char_pos: int, sentences: list[tuple[int, int, str]]) -> int:
+    for i, (s, e, _) in enumerate(sentences):
+        if s <= char_pos < e:
+            return i
+    return max(0, len(sentences) - 1)
+
+
+# =====================================================================
+# Rule-based structural (PART/CHAPTER/SECTION/POINT/APPENDIX)
+# =====================================================================
+_STRUCTURAL_PATTERNS = [
+    (r"(?<!\w)(Phần\s+(?:[IVX]+|\d+))(?!\w)",              "PART"),
+    (r"(?<!\w)(Chương\s+(?:[IVX]+|\d+))(?!\w)",            "CHAPTER"),
+    (r"(?<!\w)(Mục\s+\d+)(?!\w)",                           "SECTION"),
+    (r"(?<!\w)([Đđ]iểm\s+[a-zđ])(?!\w)",                   "POINT"),
+    (r"(?<!\w)(Phụ\s+lục\s+(?:[IVX]+|[A-Z]|\d+))(?!\w)",  "APPENDIX"),
+]
+
+
+def _rule_structural(text: str) -> list[dict]:
+    found = []
+    for pat, etype in _STRUCTURAL_PATTERNS:
+        for m in re.finditer(pat, text, re.IGNORECASE):
+            found.append({
+                "type":       etype,
+                "text":       m.group(1).strip(),
+                "score":      1.0,
+                "char_start": m.start(1),
+                "char_end":   m.end(1),
+                "source":     "rule",
+            })
+    return found
+
+
+# =====================================================================
+# Post-fixes (giữ từ pipeline cũ, đã chứng minh tốt)
+# =====================================================================
+_COND_TRIGGERS = {"khi", "nếu", "trường_hợp", "khi_có", "khi có", "trong_trường_hợp"}
+
+
+def _fix_yeu_cau(entities: list[dict], words: list[str]) -> list[dict]:
+    """OBLIGATION 'yêu cầu' đứng sau 'khi/nếu' → là CONDITION, không phải nghĩa vụ."""
+    wl = [w.lower() for w in words]
+    out = []
+    for e in entities:
+        if (e["type"] == "OBLIGATION"
+                and e["text"].lower().strip() in ("yêu cầu", "yêu_cầu")):
+            s = e.get("word_start", 0)
+            prev  = set(wl[max(0, s - 3):s])
+            after = set(wl[e.get("word_end", s + 1):e.get("word_end", s + 1) + 2])
+            if prev & _COND_TRIGGERS or s <= 1 or after & {"bằng_văn_bản", "bằng"}:
+                out.append({**e, "type": "CONDITION"})
+                continue
+        out.append(e)
+    return out
+
+
+def _fix_telecom(entities: list[dict]) -> list[dict]:
+    """TELECOM_OPERATOR là sub-class của LEGAL_ACTOR."""
+    return [
+        {**e, "type": "LEGAL_ACTOR", "subclass": "TELECOM_OPERATOR"}
+        if e["type"] == "TELECOM_OPERATOR" else e
+        for e in entities
+    ]
+
+
+_DATA_WHITELIST = {
+    "dữ liệu cá nhân", "dữ liệu cá nhân nhạy cảm", "dữ liệu sinh trắc học",
+    "dữ liệu sức khỏe", "dữ liệu tài chính", "dữ liệu y tế", "dữ liệu nhạy cảm",
+    "dữ liệu hành vi cá nhân", "dữ liệu di truyền", "dữ liệu vị trí",
+    "dữ liệu người sử dụng", "dữ liệu người dùng", "dữ liệu thuê bao",
+    "nhật ký truy cập", "nhật ký hoạt động", "thông tin cá nhân",
+    "thông tin người dùng", "thông tin thuê bao", "thông tin đăng ký",
+    "dữ liệu bí mật nhà nước", "thông tin bảo mật",
 }
-DOANH_NGHIEP_KW = {
-    "doanh nghiệp", "công ty", "tập đoàn", "tổng công ty",
-    "nhà cung cấp", "nhà mạng", "đại lý",
-}
-TO_CHUC_KW = {
-    "tổ chức", "hội", "hiệp hội", "liên minh", "đảng", "đoàn",
-    "quỹ", "trường", "trung tâm",
-}
 
 
-def _normalize_text(text: str) -> str:
-    norm = unicodedata.normalize("NFKD", text)
-    norm = "".join(ch for ch in norm if not unicodedata.combining(ch))
-    return norm.lower().strip()
+def _fix_data_type(entities: list[dict], text: str) -> list[dict]:
+    out = list(entities)
+    tl = text.lower()
+    seen = {e["text"].lower().replace("_", " ").strip() for e in out}
+    for e in out:
+        if (e["type"] in ("DATA_TYPE", "DATA")
+                and e["text"].lower().replace("_", " ").strip() in _DATA_WHITELIST):
+            e["score"] = max(e["score"], 0.85)
+    for phrase in sorted(_DATA_WHITELIST, key=len, reverse=True):
+        if phrase not in seen and phrase in tl:
+            idx = tl.find(phrase)
+            out.append({
+                "type":       "DATA_TYPE",
+                "text":       text[idx:idx + len(phrase)],
+                "score":      0.85,
+                "char_start": idx,
+                "char_end":   idx + len(phrase),
+                "source":     "whitelist",
+            })
+            seen.add(phrase)
+    return out
 
 
-def _classify_org(text: str) -> str:
-    t = text.lower()
-    if any(kw in t for kw in CO_QUAN_KW):
-        return "CoQuanNhaNuoc"
-    if any(kw in t for kw in DOANH_NGHIEP_KW):
-        return "DoanhNghiep"
-    if any(kw in t for kw in TO_CHUC_KW):
-        return "ToChucKhac"
-    if re.match(r"^(bộ|ban|cục|sở)\s", t):
-        return "CoQuanNhaNuoc"
-
-    # Fallback accent-insensitive check.
-    t_norm = _normalize_text(text)
-    if any(kw in t_norm for kw in {
-        "bo", "cuc", "tong cuc", "uy ban", "chinh phu", "quoc hoi",
-        "vien", "toa an", "kiem sat", "nha nuoc", "so", "phong", "ban",
-        "trung tam", "van phong", "thanh tra", "co quan", "luc luong",
-    }):
-        return "CoQuanNhaNuoc"
-    if any(kw in t_norm for kw in {
-        "doanh nghiep", "cong ty", "tap doan", "tong cong ty",
-        "nha cung cap", "nha mang", "dai ly",
-    }):
-        return "DoanhNghiep"
-    if any(kw in t_norm for kw in {
-        "to chuc", "hoi", "hiep hoi", "lien minh", "dang", "doan",
-        "quy", "truong", "trung tam",
-    }):
-        return "ToChucKhac"
-    if re.match(r"^(bo|ban|cuc|so)\s", t_norm):
-        return "CoQuanNhaNuoc"
-
-    return "ToChucKhac"
-
-
-class NERExtractor:
-    MODEL_NAME = "NlpHUST/ner-vietnamese-electra-base"
-    SCORE_THRESHOLD = 0.80
-    MIN_TEXT_LEN = 3
-
-    def __init__(self):
-        self._pipe = None
-        self._tokenizer = None
-
-    def _load(self):
-        if self._pipe is not None:
-            return
-        try:
-            from transformers import (
-                pipeline,
-                AutoTokenizer,
-                AutoModelForTokenClassification,
-            )
-        except ImportError:
-            raise ImportError("pip install transformers torch")
-
-        tokenizer = AutoTokenizer.from_pretrained(self.MODEL_NAME)
-        model = AutoModelForTokenClassification.from_pretrained(self.MODEL_NAME)
-        self._pipe = pipeline(
-            "ner",
-            model=model,
-            tokenizer=tokenizer,
-            aggregation_strategy="simple",
-            device=-1,
+# =====================================================================
+# Main extractor
+# =====================================================================
+class NerExtractor:
+    def __init__(self, model_dir: Optional[str | Path] = None,
+                 device: Optional[str] = None):
+        self.model_dir = Path(model_dir) if model_dir else _DEFAULT_MODEL_DIR
+        self.device = torch.device(
+            device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
-        self._tokenizer = tokenizer
+        self.tok = AutoTokenizer.from_pretrained(str(self.model_dir), use_fast=True)
+        self.mdl = (AutoModelForTokenClassification
+                    .from_pretrained(str(self.model_dir))
+                    .eval()
+                    .to(self.device))
 
-    def extract_actors(self, text: str, dieu_id: str) -> list[dict]:
-        self._load()
+        label_path = self.model_dir / "label_mapping.json"
+        if label_path.exists():
+            mp = json.loads(label_path.read_text(encoding="utf-8"))
+            self.id2label = {int(k): v for k, v in mp["id2label"].items()}
+        else:
+            self.id2label = {int(k): v for k, v in self.mdl.config.id2label.items()}
 
-        tokens = self._tokenizer(
-            text, truncation=True, max_length=512, return_tensors="pt"
-        )
-        decoded = self._tokenizer.decode(
-            tokens["input_ids"][0], skip_special_tokens=True
-        )
+    # ----------------------------------------------------------------
+    @torch.no_grad()
+    def _model_predict(self, text: str) -> tuple[list[str], list[dict]]:
+        words = word_tokenize(text)
+        enc = self.tok(
+            words,
+            is_split_into_words=True,
+            return_tensors="pt",
+            truncation=True,
+            max_length=MAX_LENGTH,
+            return_offsets_mapping=False,
+        ).to(self.device)
 
-        results = self._pipe(decoded)
-        seen: set[tuple[str, str]] = set()
-        actors: list[dict] = []
+        logits = self.mdl(**enc).logits[0]
+        probs  = torch.softmax(logits, dim=-1).cpu().numpy()
+        pred_ids = probs.argmax(-1)
+        word_ids = enc.word_ids(0)
 
-        for r in results:
-            tag = r.get("entity_group")
-            if tag not in ("ORG", "PER"):
+        word_label = [None] * len(words)
+        word_score = [0.0]  * len(words)
+        seen = set()
+        for j, wid in enumerate(word_ids):
+            if wid is None or wid in seen:
                 continue
-            if float(r.get("score", 0)) < self.SCORE_THRESHOLD:
-                continue
+            seen.add(wid)
+            word_label[wid] = self.id2label[int(pred_ids[j])]
+            word_score[wid] = float(probs[j, pred_ids[j]])
 
-            text_clean = str(r.get("word", "")).strip().title()
-            if len(text_clean) < self.MIN_TEXT_LEN:
-                continue
+        # Map word_idx → char position trong text gốc
+        word_char_start = self._map_words_to_char(text, words)
 
-            label = "ChucDanh" if tag == "PER" else _classify_org(text_clean)
-            key = (text_clean, label)
-            if key in seen:
-                continue
-            seen.add(key)
+        entities: list[dict] = []
+        cur: dict | None = None
 
-            actors.append(
-                {
-                    "text": text_clean,
-                    "label": label,
-                    "score": round(float(r["score"]), 3),
-                    "source_dieu_id": dieu_id,
-                }
-            )
+        def flush():
+            nonlocal cur
+            if cur is None:
+                return
+            cs = word_char_start[cur["word_start"]][0]
+            ce = word_char_start[cur["word_end"] - 1][1]
+            entities.append({
+                "type":       cur["type"],
+                "text":       " ".join(cur["tokens"]).replace("_", " "),
+                "score":      round(sum(cur["scores"]) / len(cur["scores"]), 4),
+                "char_start": cs,
+                "char_end":   ce,
+                "word_start": cur["word_start"],
+                "word_end":   cur["word_end"],
+                "source":     "model",
+            })
+            cur = None
 
-        # Fallback to regex extractor if model returns empty.
-        if not actors:
-            actors = self._fallback_extract(text, dieu_id)
+        for i, (w, lab, s) in enumerate(zip(words, word_label, word_score)):
+            if lab is None or lab == "O":
+                flush(); continue
+            prefix, _, etype = lab.partition("-")
+            if prefix == "B" or cur is None or cur["type"] != etype:
+                flush()
+                cur = {"type": etype, "tokens": [w], "scores": [s],
+                       "word_start": i, "word_end": i + 1}
+            else:
+                cur["tokens"].append(w); cur["scores"].append(s)
+                cur["word_end"] = i + 1
+        flush()
+        return words, entities
 
-        return actors
+    @staticmethod
+    def _map_words_to_char(text: str, words: list[str]) -> list[tuple[int, int]]:
+        """Best-effort map word index → (char_start, char_end) trong text gốc."""
+        spans = []
+        cursor = 0
+        for w in words:
+            surface = w.replace("_", " ")
+            idx = text.find(surface, cursor)
+            if idx < 0:
+                # fallback: skip mismatch (giữ cursor)
+                spans.append((cursor, cursor + len(surface)))
+            else:
+                spans.append((idx, idx + len(surface)))
+                cursor = idx + len(surface)
+        return spans
 
-    def _fallback_extract(self, text: str, dieu_id: str) -> list[dict]:
-        patterns = [
-            (
-                re.compile(
-                    r"\b(?:Thủ tướng|Thu tuong|Phó thủ tướng|Pho thu tuong|"
-                    r"Bộ trưởng|Bo truong|Chủ tịch Quốc hội|Chu tich Quoc hoi|"
-                    r"Chủ tịch nước|Chu tich nuoc)\b",
-                    flags=re.IGNORECASE,
-                ),
-                "ChucDanh",
-            ),
-            (
-                re.compile(
-                    r"\b(?:Bộ|Bo|Cục|Cuc|Tổng cục|Tong cuc|Ủy ban|Uy ban|"
-                    r"Chính phủ|Chinh phu|Quốc hội|Quoc hoi|Viện|Vien|"
-                    r"Tòa án|Toa an|Sở|So)\s+[^\n,.;:]{2,80}",
-                    flags=re.IGNORECASE,
-                ),
-                "ORG",
-            ),
-            (
-                re.compile(
-                    r"\b(?:Công ty|Cong ty|Doanh nghiệp|Doanh nghiep|"
-                    r"Tập đoàn|Tap doan|Tổng công ty|Tong cong ty)\s+[^\n,.;:]{2,80}",
-                    flags=re.IGNORECASE,
-                ),
-                "ORG",
-            ),
+    # ----------------------------------------------------------------
+    def extract(self, text: str, score_threshold: float = SCORE_THRESHOLD) -> list[dict]:
+        """Trả list entity. Mỗi entity đã có sentence_idx tính sẵn theo char_start."""
+        words, model_ents = self._model_predict(text)
+        # filter low-confidence trước fix
+        model_ents = [e for e in model_ents if e["score"] >= score_threshold]
+        # bỏ structural từ model (đã có rule riêng, ổn định hơn)
+        model_ents = [
+            e for e in model_ents
+            if e["type"] not in {"PART", "CHAPTER", "SECTION", "POINT", "APPENDIX"}
         ]
 
-        actors: list[dict] = []
-        seen: set[tuple[str, str]] = set()
+        entities = model_ents + _rule_structural(text)
+        entities = _fix_yeu_cau(entities, words)
+        entities = _fix_telecom(entities)
+        entities = _fix_data_type(entities, text)
 
-        for pattern, entity_type in patterns:
-            for match in pattern.finditer(text):
-                text_clean = match.group(0).strip().title()
-                if len(text_clean) < self.MIN_TEXT_LEN:
-                    continue
+        # dedup theo (type, text-normalized)
+        seen, deduped = set(), []
+        for e in sorted(entities, key=lambda x: x.get("char_start", 0)):
+            key = (e["type"], e["text"].lower().replace("_", " ").strip())
+            if key not in seen:
+                seen.add(key); deduped.append(e)
 
-                label = "ChucDanh" if entity_type == "ChucDanh" else _classify_org(text_clean)
-                key = (text_clean, label)
-                if key in seen:
-                    continue
-                seen.add(key)
-
-                actors.append(
-                    {
-                        "text": text_clean,
-                        "label": label,
-                        "score": 0.5,
-                        "source_dieu_id": dieu_id,
-                    }
-                )
-
-        return actors
+        # gắn sentence_idx
+        sents = split_sentences(text)
+        for e in deduped:
+            e["sentence_idx"] = _sentence_idx_of(e.get("char_start", 0), sents)
+        return deduped
 
 
-_ner_extractor: Optional[NERExtractor] = None
-
-
-def get_ner_extractor() -> NERExtractor:
-    global _ner_extractor
-    if _ner_extractor is None:
-        _ner_extractor = NERExtractor()
-    return _ner_extractor
-
-
-def _read_docx_paragraphs(docx_path: str) -> list[str]:
-    from docx import Document
-
-    doc = Document(docx_path)
-    return [p.text.strip() for p in doc.paragraphs if p.text and p.text.strip()]
-
-
-def _chunk_paragraphs(paragraphs: list[str], max_chars: int = 1200) -> list[str]:
-    chunks: list[str] = []
-    current: list[str] = []
-    current_len = 0
-
-    for para in paragraphs:
-        para_len = len(para) + 1
-        if current and current_len + para_len > max_chars:
-            chunks.append("\n".join(current))
-            current = [para]
-            current_len = para_len
-        else:
-            current.append(para)
-            current_len += para_len
-
-    if current:
-        chunks.append("\n".join(current))
-    return chunks
-
-
-def extract_actors_from_docx(docx_path: str, max_chars: int = 1200) -> list[dict]:
-    paragraphs = _read_docx_paragraphs(docx_path)
-    chunks = _chunk_paragraphs(paragraphs, max_chars=max_chars)
-    ner = get_ner_extractor()
-
-    all_actors: list[dict] = []
-    seen: set[tuple[str, str]] = set()
-
-    for idx, chunk in enumerate(chunks, start=1):
-        actors = ner.extract_actors(chunk, f"chunk_{idx}")
-        for actor in actors:
-            key = (actor["text"], actor["label"])
-            if key in seen:
-                continue
-            seen.add(key)
-            all_actors.append(actor)
-
-    return all_actors
-
-
-def _print_result(actors: list[dict], limit: int) -> None:
-    counts = Counter(a["label"] for a in actors)
-    print(f"Tong actor: {len(actors)}")
-    print("Thong ke theo label:")
-    for label, count in sorted(counts.items()):
-        print(f"  - {label}: {count}")
-
-    sample = actors[:limit] if limit > 0 else actors
-    print(f"\nTop {len(sample)} actors (JSON):")
-    try:
-        print(json.dumps(sample, ensure_ascii=False, indent=2))
-    except UnicodeEncodeError:
-        print(json.dumps(sample, ensure_ascii=True, indent=2))
-
-
-if __name__ == "__main__":
-    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-    os.environ.setdefault("PYTHONUTF8", "1")
-    if hasattr(sys.stdout, "reconfigure"):
-        try:
-            sys.stdout.reconfigure(encoding="utf-8")
-            sys.stderr.reconfigure(encoding="utf-8")
-        except Exception:
-            pass
-
-    default_docx = Path(__file__).resolve().parents[1] / "data" / "raw" / "luatanm2025.docx"
-
-    parser = argparse.ArgumentParser(description="Run NER for a law .docx file.")
-    parser.add_argument("--docx", type=str, default=str(default_docx), help="Path to .docx input file")
-    parser.add_argument("--max-chars", type=int, default=1200, help="Chunk size by characters")
-    parser.add_argument("--limit", type=int, default=50, help="How many actors to print")
-    args = parser.parse_args()
-
-    try:
-        output = extract_actors_from_docx(args.docx, max_chars=args.max_chars)
-        _print_result(output, limit=args.limit)
-    except Exception as exc:
-        print(f"[ERROR] {exc}")
-        sys.exit(1)
+# ── Module-level singleton (lazy) ────────────────────────────────────
+@lru_cache(maxsize=1)
+def get_ner_extractor(model_dir: Optional[str] = None) -> NerExtractor:
+    return NerExtractor(model_dir=model_dir)

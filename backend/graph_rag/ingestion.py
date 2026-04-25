@@ -1,363 +1,344 @@
 """
-graph_rag/ingestion.py
-Pipeline hoàn chỉnh cho Knowledge Graph:
-  docx → extract → clean → chunk → NER + Rule → upsert Neo4j
+ingestion.py — Pipeline KG cho 1 file luật do người dùng tải lên.
 
-Bao gồm:
-  - Nạp cấu trúc: VanBan → Chuong → DieuLuat → KhoanMuc
-  - Nạp nội dung:  KhaiNiemPhapLy, HanhViBiCam, Actor
-  - Nạp liên kết:  THAM_CHIEU, LIEN_LUAT
-  - ★ NEW: Nạp sửa đổi chi tiết cấp Điều + hiệu lực + chuyển tiếp
+Entry point:
+    ingest_docx(file_path, law_id, ten, so_hieu, nam, loai, *, wipe=False)
 
-Chạy:
-  python ingestion.py
+Flow (per file):
+  1. extract_docx → clean_text
+  2. chunk_law → list[LawChunk]   (cấp dieu + khoan)
+  3. Upsert LAW + CHAPTER + ARTICLE + CLAUSE  (Layer 1 — 100% node)
+  4. Per chunk:
+       a. NER → entities (đã có sentence_idx)
+       b. Filter: NODE  → upsert entity nodes + MENTIONS edge
+                  EDGE  → giữ lại để gắn vào quan hệ (modality/condition/...)
+       c. Rule-based: REFERS_TO (THAM_CHIEU)
+       d. LLM (Qwen3.5-9B): chunk + node-entities → list edges
+       e. Merge edge-attrs cùng câu vào edges từ LLM
+       f. Upsert tất cả edges
 """
+from __future__ import annotations
 
 import os
+import re
 import sys
-import json
 from pathlib import Path
+from typing import Optional
 
-# Thêm vector_rag vào sys.path để tái dụng extractor + chunker
-sys.path.insert(0, str(Path(__file__).parent.parent / "vector_rag"))
+# Cho phép import trực tiếp module trong cùng package khi chạy file này standalone
+_THIS = Path(__file__).resolve()
+sys.path.insert(0, str(_THIS.parent.parent))           # backend/
+from vector_rag.extractor import extract_docx, clean_text  # noqa: E402
+from vector_rag.chunker import chunk_law, LawChunk         # noqa: E402
 
-from extractor import extract_docx, clean_text
-from chunker import chunk_law, LawChunk
-from ner_extractor import get_ner_extractor
-from rule_extractors import (
-    extract_khai_niem,
-    extract_hanh_vi_bi_cam,
-    extract_references,
-    extract_lien_luat,
-    extract_sua_doi_chi_tiet,
-    extract_chuyen_tiep,
-)
-from neo4j_loader import Neo4jLegalKG
-from ontology import (
-    GIAI_THICH_DIEU,
-    NGHIEM_CAM_DIEU,
-    LIEN_LUAT_DIEU,
-    SUA_DOI_DIEU,
-    HIEU_LUC_DIEU,
-    CHUYEN_TIEP_DIEU,
-    VAN_BAN_META,
+from graph_rag.ner_extractor import get_ner_extractor, split_sentences  # noqa: E402
+from graph_rag.tham_chieu  import extract_tham_chieu                    # noqa: E402
+from graph_rag.llm_relation import LlmRelationExtractor                 # noqa: E402
+from graph_rag.neo4j_loader import Neo4jKG                              # noqa: E402
+from graph_rag.ontology import (                                        # noqa: E402
+    is_node, edge_attr_role, get_layer,
 )
 
-# ── Cấu hình ────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).parent.parent
 
-RAW_FILES = {
-    "LuatAnNinhMang2025": BASE_DIR / "data" / "raw" / "luatanm2025.docx",
-    "LuatCNTT2006":       BASE_DIR / "data" / "raw" / "luatcntt2006.docx",
-    "LuatVienThong2023":  BASE_DIR / "data" / "raw" / "luatvienthong2023.docx",
-}
-
+# ── Defaults ─────────────────────────────────────────────────────────
 NEO4J_URI      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
 NEO4J_USER     = os.getenv("NEO4J_USER",     "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "12345678")
 
-# Bật/tắt NER (tốn thời gian load model)
-USE_NER = os.getenv("USE_NER", "true").lower() == "true"
+LLM_ENDPOINT   = os.getenv("LLM_ENDPOINT",   "http://localhost:8000/v1/chat/completions")
+LLM_MODEL      = os.getenv("LLM_MODEL",      "Qwen3.5-9B")
 
 
-def _make_chuong_id(law_name: str, chuong_so: str) -> str:
-    return f"{law_name}_chuong_{chuong_so}"
+# ── Helpers ───────────────────────────────────────────────────────────
+def _make_node_id(etype: str, text: str) -> str:
+    clean = re.sub(r"\s+", "_", text.lower().strip())
+    clean = re.sub(r"[^\w_]", "", clean)
+    return f"{etype.lower()}_{clean[:60]}"
 
 
-def _is_giai_thich_dieu(law_name: str, dieu_so: str) -> bool:
-    return GIAI_THICH_DIEU.get(law_name) == dieu_so
+def _make_chapter_id(law_id: str, chuong_so: str) -> str:
+    return f"{law_id}_chuong_{chuong_so}"
 
 
-def _is_nghiem_cam_dieu(law_name: str, dieu_so: str) -> bool:
-    return NGHIEM_CAM_DIEU.get(law_name) == dieu_so
+def _make_clause_id(article_id: str, khoan_so: str) -> str:
+    return f"{article_id}_khoan_{khoan_so}"
 
 
-def _is_lien_luat_dieu(law_name: str, dieu_so: str) -> bool:
-    return dieu_so in LIEN_LUAT_DIEU.get(law_name, [])
+def _classify_entity(e: dict) -> tuple[str, dict | None]:
+    """
+    Trả ('node', enriched_e) | ('edge_attr', role_dict) | ('skip', None).
+    """
+    etype = e["type"]
+    if is_node(etype):
+        nid = _make_node_id(etype, e["text"])
+        return ("node", {
+            "id":           nid,
+            "type":         etype,
+            "label":        e["text"],
+            "score":        e.get("score"),
+            "subclass":     e.get("subclass"),
+            "sentence_idx": e.get("sentence_idx", 0),
+            "source":       e.get("source", "model"),
+        })
+    role = edge_attr_role(etype)
+    if role:
+        return ("edge_attr", {
+            "role":         role[0],         # 'modality' | 'logic' | 'governance'
+            "key":          role[1],         # 'OBLIGATION' | 'condition' | 'AUDIT' | ...
+            "value":        e["text"],
+            "sentence_idx": e.get("sentence_idx", 0),
+        })
+    return ("skip", None)
 
 
-def _is_sua_doi_dieu(law_name: str, dieu_so: str) -> bool:
-    return dieu_so in SUA_DOI_DIEU.get(law_name, [])
+def _attach_edge_attrs(edges: list[dict], edge_attrs: list[dict]) -> list[dict]:
+    """
+    Ghép edge attrs (từ NER) cùng sentence_idx vào edge (từ LLM).
+    LLM có thể đã set modality/condition; nếu chưa, lấy từ NER.
+    """
+    if not edge_attrs:
+        return edges
+    by_sent: dict[int, list[dict]] = {}
+    for ea in edge_attrs:
+        by_sent.setdefault(ea["sentence_idx"], []).append(ea)
+
+    for ed in edges:
+        sidx = ed.get("sentence_idx")
+        if sidx is None:
+            continue
+        for ea in by_sent.get(sidx, []):
+            role, key, val = ea["role"], ea["key"], ea["value"]
+            if role == "modality":
+                ed.setdefault("modality", key)  # OBLIGATION / PROHIBITION / PERMISSION
+            elif role == "logic":
+                ed.setdefault(key, val)          # condition / exception / time / ...
+            elif role == "governance":
+                # Governance từ NER là gợi ý — không override edge.type của LLM,
+                # chỉ thêm vào property `governance_tag` để tham khảo.
+                ed.setdefault("governance_tag", key)
+    return edges
 
 
-def _is_hieu_luc_dieu(law_name: str, dieu_so: str) -> bool:
-    return dieu_so in HIEU_LUC_DIEU.get(law_name, [])
+# ── Main API ──────────────────────────────────────────────────────────
+def ingest_docx(file_path: str | Path,
+                law_id:   str,
+                ten:      str,
+                so_hieu:  str,
+                nam:      str,
+                loai:     str = "Luật",
+                *,
+                wipe:           bool = False,
+                ner_model_dir:  Optional[str] = None,
+                llm_endpoint:   str = LLM_ENDPOINT,
+                llm_model:      str = LLM_MODEL,
+                neo4j_uri:      str = NEO4J_URI,
+                neo4j_user:     str = NEO4J_USER,
+                neo4j_password: str = NEO4J_PASSWORD,
+                use_llm:        bool = True) -> dict:
+    """
+    Chạy toàn bộ KG ingestion cho 1 file docx.
+    Trả dict thống kê: {chunks, articles, clauses, entities, edges, refers_to}.
+    """
+    file_path = Path(file_path)
+    if not file_path.exists():
+        raise FileNotFoundError(file_path)
 
+    print(f"\n{'=' * 60}\n[ingest] {law_id}  ({so_hieu})\n  file: {file_path}")
 
-def _is_chuyen_tiep_dieu(law_name: str, dieu_so: str) -> bool:
-    return dieu_so in CHUYEN_TIEP_DIEU.get(law_name, [])
+    # ── 1. Extract + chunk ─────────────────────────────────────────
+    raw   = extract_docx(str(file_path))
+    text  = clean_text(raw)
+    chunks: list[LawChunk] = chunk_law(text, law_id)
+    print(f"  chunks: {len(chunks)}  "
+          f"(dieu={sum(1 for c in chunks if c.chunk_type == 'dieu')}, "
+          f"khoan={sum(1 for c in chunks if c.chunk_type == 'khoan')})")
 
-
-def run_ingestion():
-    """Chạy toàn bộ pipeline Graph RAG ingestion."""
-
-    # 1. Kết nối Neo4j
-    print(f"Kết nối Neo4j: {NEO4J_URI}")
-    kg = Neo4jLegalKG(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+    # ── 2. Setup Neo4j ─────────────────────────────────────────────
+    kg = Neo4jKG(neo4j_uri, neo4j_user, neo4j_password)
+    if wipe:
+        kg.wipe()
     kg.setup_schema()
 
-    # 2. NER extractor (lazy load)
-    ner = get_ner_extractor() if USE_NER else None
+    # ── 3. Layer 1 nodes (LAW + CHAPTER + ARTICLE + CLAUSE) ───────
+    kg.upsert_law(law_id=law_id, ten=ten, so_hieu=so_hieu,
+                  nam=nam, loai=loai)
 
-    # 3. Xử lý từng luật
-    for law_name, file_path in RAW_FILES.items():
-        if not file_path.exists():
-            print(f"\n[WARN] Không tìm thấy: {file_path}, bỏ qua.")
+    seen_chapters: set[str] = set()
+    article_ids:   set[str] = set()
+
+    for chunk in chunks:
+        if chunk.chunk_type != "dieu":
             continue
+        chapter_id = _make_chapter_id(law_id, chunk.chuong_so)
+        if chapter_id not in seen_chapters:
+            kg.upsert_chapter(chapter_id, chunk.chuong_so,
+                              chunk.chuong_ten, law_id)
+            seen_chapters.add(chapter_id)
+        kg.upsert_article(
+            article_id=chunk.neo4j_id,
+            so=chunk.dieu_so, ten=chunk.dieu_ten,
+            content=chunk.content,
+            chapter_id=chapter_id, law_id=law_id,
+            amendment_type=chunk.amendment_type,
+        )
+        article_ids.add(chunk.neo4j_id)
 
-        meta = VAN_BAN_META[law_name]
-        print(f"\n{'='*55}")
-        print(f"Processing KG: {law_name}  ({meta['so_hieu']})")
+    # CLAUSE từ chunk khoan
+    for chunk in chunks:
+        if chunk.chunk_type != "khoan":
+            continue
+        clause_id = _make_clause_id(chunk.neo4j_id, chunk.khoan_so)
+        kg.upsert_clause(clause_id, chunk.khoan_so,
+                         chunk.content, chunk.neo4j_id)
 
-        # Extract + clean text
-        raw   = extract_docx(str(file_path))
-        clean = clean_text(raw)
+    # ── 4. Per-chunk: NER + Rule + LLM ─────────────────────────────
+    ner = get_ner_extractor(ner_model_dir)
+    llm = LlmRelationExtractor(endpoint=llm_endpoint, model=llm_model) if use_llm else None
 
-        # Chunk theo cấu trúc Chương/Điều/Khoản
-        chunks: list[LawChunk] = chunk_law(clean, law_name)
-        print(f"  Chunks: {len(chunks)} "
-              f"(dieu={sum(1 for c in chunks if c.chunk_type=='dieu')}, "
-              f"khoan={sum(1 for c in chunks if c.chunk_type=='khoan')})")
+    total_entities = 0
+    total_edges    = 0
+    total_refs     = 0
 
-        # Thống kê amendment
-        amend_count = sum(1 for c in chunks if c.amendment_type and c.chunk_type == 'dieu')
-        if amend_count:
-            print(f"  Amendment Điều: {amend_count}")
+    # Chỉ chạy NER+LLM trên cấp khoan (granular hơn) hoặc trên dieu nếu Điều
+    # không bị split khoan. → tránh trùng lặp.
+    chunks_for_extraction = _select_extraction_chunks(chunks)
+    print(f"  extraction chunks: {len(chunks_for_extraction)}")
 
-        # ── A. VanBanPhapLuat node ───────────────────────────────
-        kg.upsert_van_ban(
-            law_id=law_name,
-            ten=meta["ten"],
-            so_hieu=meta["so_hieu"],
-            nam=meta["nam"],
-            loai=meta["loai"],
+    for chunk in chunks_for_extraction:
+        article_id = chunk.neo4j_id
+        anchor_clause = (
+            _make_clause_id(article_id, chunk.khoan_so)
+            if chunk.chunk_type == "khoan" else None
         )
 
-        # Track Chương đã tạo
-        seen_chuong: set[str] = set()
+        # 4a. NER
+        entities = ner.extract(chunk.content)
 
-        # ── B. Duyệt qua chunks ──────────────────────────────────
-        for chunk in chunks:
-            # Chỉ xử lý chunk cấp DIEU để nạp KG
-            # (khoan chunk chỉ dành cho Vector RAG)
-            if chunk.chunk_type != "dieu":
+        # 4b. Phân loại
+        node_entities: list[dict] = []
+        edge_attrs:    list[dict] = []
+        for e in entities:
+            kind, payload = _classify_entity(e)
+            if kind == "node":
+                node_entities.append(payload)
+            elif kind == "edge_attr":
+                edge_attrs.append(payload)
+
+        # Dedup node entities theo id
+        seen_nid: set[str] = set()
+        nodes_to_upsert: list[dict] = []
+        for n in node_entities:
+            if n["id"] in seen_nid:
                 continue
+            seen_nid.add(n["id"])
+            nodes_to_upsert.append(n)
 
-            dieu_id   = chunk.neo4j_id
-            chuong_id = _make_chuong_id(law_name, chunk.chuong_so)
-
-            # ── B1. Chuong node ──────────────────────────────────
-            if chuong_id not in seen_chuong:
-                kg.upsert_chuong(
-                    chuong_id=chuong_id,
-                    so=chunk.chuong_so,
-                    ten=chunk.chuong_ten,
-                    law_id=law_name,
-                )
-                seen_chuong.add(chuong_id)
-
-            # ── B2. DieuLuat node ────────────────────────────────
-            kg.upsert_dieu_luat(
-                dieu_id=dieu_id,
-                so=chunk.dieu_so,
-                ten=chunk.dieu_ten,
-                noi_dung_tom=chunk.content,
-                chuong_id=chuong_id,
-                law_id=law_name,
-                amendment_type=chunk.amendment_type,
+        # Upsert node entities
+        for n in nodes_to_upsert:
+            kg.upsert_entity(
+                node_id=n["id"], etype=n["type"], label=n["label"],
+                article_id=article_id, clause_id=anchor_clause,
+                sentence_idx=n["sentence_idx"], score=n["score"],
+                subclass=n.get("subclass"), source=n.get("source", "ner"),
             )
+        total_entities += len(nodes_to_upsert)
 
-            # ── B3. KhoanMuc nodes (từ chunk khoan cùng Điều) ───
-            # Tìm các chunk khoản tương ứng
-            # (được chunk bởi chunker.py khi Điều > 600 ký tự)
-
-            # ── B4. Rule: KhaiNiemPhapLy ─────────────────────────
-            if _is_giai_thich_dieu(law_name, chunk.dieu_so):
-                kns = extract_khai_niem(chunk.content, dieu_id)
-                for kn in kns:
-                    kg.upsert_khai_niem(
-                        ten=kn["ten"],
-                        dinh_nghia=kn["dinh_nghia"],
-                        dieu_id=dieu_id,
-                    )
-                print(f"  [{chunk.dieu_so}] KhaiNiem: {len(kns)} khái niệm")
-
-            # ── B5. Rule: HanhViBiCam ────────────────────────────
-            if _is_nghiem_cam_dieu(law_name, chunk.dieu_so):
-                hvs = extract_hanh_vi_bi_cam(chunk.content, dieu_id)
-                for hv in hvs:
-                    kg.upsert_hanh_vi_bi_cam(
-                        ten=hv["ten"],
-                        mo_ta=hv["mo_ta"],
-                        dieu_id=dieu_id,
-                    )
-                print(f"  [{chunk.dieu_so}] HanhViBiCam: {len(hvs)} hành vi")
-
-            # ── B6. Rule: THAM_CHIEU ─────────────────────────────
-            refs = extract_references(chunk.content, chunk.dieu_so, law_name)
-            for ref in refs:
-                kg.add_tham_chieu(
-                    from_id=ref["from_id"],
-                    to_id=ref["to_id"],
-                    context=ref["context"],
+        # 4c. Rule-based REFERS_TO (chỉ chạy 1 lần / Điều, dùng full content Điều)
+        if chunk.chunk_type == "dieu" or chunk.khoan_so in (None, "1"):
+            refs = extract_tham_chieu(chunk.content, chunk.dieu_so, law_id)
+            for r in refs:
+                to_aid = (
+                    f"{r['to_law_id']}_dieu_{r['to_dieu_so']}"
+                    if not r["cross_law"]
+                    else f"{r['to_law_id']}_dieu_{r['to_dieu_so']}"
                 )
+                kg.add_refers_to(article_id, to_aid,
+                                 r["context"], r["cross_law"])
+                total_refs += 1
 
-            # ── B7. Rule: quan hệ liên luật ──────────────────────
-            if _is_lien_luat_dieu(law_name, chunk.dieu_so):
-                rels = extract_lien_luat(chunk.content, law_name)
-                for rel in rels:
-                    kg.add_lien_luat(
-                        from_law_id=law_name,
-                        to_so_hieu=rel["to_so_hieu"],
-                        to_law_ten=rel["to_law_ten"],
-                        rel_type=rel["rel_type"],
-                    )
-                if rels:
-                    print(f"  [{chunk.dieu_so}] LienLuat: {len(rels)} quan hệ")
-
-            # ── B8. NER: Actor nodes ─────────────────────────────
-            if ner is not None:
-                actors = ner.extract_actors(chunk.content, dieu_id)
-                for actor in actors:
-                    kg.upsert_actor(
-                        ten=actor["text"],
-                        label=actor["label"],
-                        dieu_id=dieu_id,
-                    )
-
-            # ══════════════════════════════════════════════════════
-            # ★ NEW: B9. Sửa đổi chi tiết cấp Điều
-            # ══════════════════════════════════════════════════════
-            if _is_sua_doi_dieu(law_name, chunk.dieu_so):
-                sua_doi_items = extract_sua_doi_chi_tiet(
-                    chunk.content, dieu_id, law_name
-                )
-                for item in sua_doi_items:
-                    if item["type"] == "thay_cum_tu" and item.get("to_dieu_so"):
-                        kg.add_sua_doi_dieu(
-                            from_dieu_id=dieu_id,
-                            to_so_hieu=item["to_so_hieu"],
-                            to_dieu_so=item["to_dieu_so"],
-                            context=f"Thay '{item.get('cum_tu_cu', '')}' → '{item.get('cum_tu_moi', '')}'",
-                            rel_type="THAY_THE_CUM_TU",
-                        )
-                    elif item["type"] == "bai_bo_dieu" and item.get("to_dieu_so"):
-                        kg.add_sua_doi_dieu(
-                            from_dieu_id=dieu_id,
-                            to_so_hieu=item.get("to_so_hieu", ""),
-                            to_dieu_so=item["to_dieu_so"],
-                            context=item.get("context", ""),
-                            rel_type="BAI_BO_DIEU",
-                        )
-                        # Đánh dấu Điều bị bãi bỏ hết hiệu lực
-                        if item.get("to_so_hieu"):
-                            target_id = f"{item['to_so_hieu']}_dieu_{item['to_dieu_so']}"
-                            kg.mark_dieu_bai_bo(target_id)
-                    elif item["type"] == "sua_doi_dieu" and item.get("to_dieu_so"):
-                        kg.add_sua_doi_dieu(
-                            from_dieu_id=dieu_id,
-                            to_so_hieu=item["to_so_hieu"],
-                            to_dieu_so=item["to_dieu_so"],
-                            context=item.get("context", ""),
-                            rel_type="SUA_DOI_DIEU",
-                        )
-                    elif item["type"] == "het_hieu_luc":
-                        # Đánh dấu VanBan cũ hết hiệu lực
-                        kg.mark_van_ban_het_hieu_luc(
-                            so_hieu=item["to_so_hieu"],
-                            law_ten=item.get("to_law_ten", ""),
-                        )
-                        kg.add_bai_bo_van_ban(
-                            from_law_id=law_name,
-                            to_so_hieu=item["to_so_hieu"],
-                            to_law_ten=item.get("to_law_ten", ""),
-                        )
-
-                if sua_doi_items:
-                    print(f"  [{chunk.dieu_so}] SuaDoiChiTiet: "
-                          f"{len(sua_doi_items)} mục "
-                          f"({', '.join(set(i['type'] for i in sua_doi_items))})")
-
-            # ══════════════════════════════════════════════════════
-            # ★ NEW: B10. Hiệu lực thi hành
-            # ══════════════════════════════════════════════════════
-            if _is_hieu_luc_dieu(law_name, chunk.dieu_so):
-                hieu_luc_items = extract_sua_doi_chi_tiet(
-                    chunk.content, dieu_id, law_name
-                )
-                for item in hieu_luc_items:
-                    if item["type"] == "het_hieu_luc":
-                        kg.mark_van_ban_het_hieu_luc(
-                            so_hieu=item["to_so_hieu"],
-                            law_ten=item.get("to_law_ten", ""),
-                        )
-                        kg.add_bai_bo_van_ban(
-                            from_law_id=law_name,
-                            to_so_hieu=item["to_so_hieu"],
-                            to_law_ten=item.get("to_law_ten", ""),
-                        )
-
-                if hieu_luc_items:
-                    het_hl = [i for i in hieu_luc_items if i["type"] == "het_hieu_luc"]
-                    if het_hl:
-                        print(f"  [{chunk.dieu_so}] HieuLuc: "
-                              f"{len(het_hl)} luật hết hiệu lực")
-
-            # ══════════════════════════════════════════════════════
-            # ★ NEW: B11. Quy định chuyển tiếp
-            # ══════════════════════════════════════════════════════
-            if _is_chuyen_tiep_dieu(law_name, chunk.dieu_so):
-                ct_items = extract_chuyen_tiep(chunk.content, dieu_id)
-                if ct_items:
-                    print(f"  [{chunk.dieu_so}] ChuyenTiep: "
-                          f"{len(ct_items)} quy định")
-                    # Lưu liên kết tham chiếu đến các luật liên quan
-                    for ct in ct_items:
-                        for so_hieu in ct.get("affected_so_hieu", []):
-                            kg.add_lien_luat(
-                                from_law_id=law_name,
-                                to_so_hieu=so_hieu,
-                                to_law_ten="",
-                                rel_type="SUA_DOI_BO_SUNG",
-                            )
-
-    # 4. Nạp KhoanMuc riêng (từ chunks khoan)
-    print("\n--- Nạp KhoanMuc nodes ---")
-    for law_name, file_path in RAW_FILES.items():
-        if not file_path.exists():
+        # 4d. LLM extract edges
+        if not llm or len(nodes_to_upsert) < 2:
             continue
-        raw   = extract_docx(str(file_path))
-        clean = clean_text(raw)
-        chunks = chunk_law(clean, law_name)
+        # Gắn sentence_idx vào edges (dùng sentence của from-node làm proxy)
+        nodes_idx = {n["id"]: n["sentence_idx"] for n in nodes_to_upsert}
+        edges = llm.extract(chunk.content, nodes_to_upsert)
+        for ed in edges:
+            ed["sentence_idx"] = nodes_idx.get(ed["from_id"])
+            ed["article_id"]   = article_id
 
-        khoan_chunks = [c for c in chunks if c.chunk_type == "khoan"]
-        for chunk in khoan_chunks:
-            khoan_id = chunk.chunk_id
-            kg.upsert_khoan_muc(
-                khoan_id=khoan_id,
-                so=chunk.khoan_so,
-                noi_dung=chunk.content,
-                dieu_id=chunk.neo4j_id,
+        edges = _attach_edge_attrs(edges, edge_attrs)
+
+        for ed in edges:
+            kg.upsert_edge(
+                from_id=ed["from_id"], to_id=ed["to_id"], rel_type=ed["type"],
+                modality=ed.get("modality"),
+                condition=ed.get("condition"),
+                exception=ed.get("exception"),
+                scope=ed.get("scope"),
+                time=ed.get("time"),
+                status=ed.get("status"),
+                classification=ed.get("classification"),
+                level=ed.get("level"),
+                evidence=ed.get("evidence"),
+                article_id=ed.get("article_id"),
+                sentence_idx=ed.get("sentence_idx"),
+                source="llm",
             )
-        print(f"  {law_name}: {len(khoan_chunks)} khoản")
+        total_edges += len(edges)
 
-    # 5. Thống kê
-    print("\n✅ Knowledge Graph ingestion hoàn tất!")
-    stats = kg.get_stats()
-    for label, count in stats.items():
-        print(f"  {label:<25}: {count:>5} nodes")
-
-    # ★ NEW: Thống kê sửa đổi
-    print("\n── Thống kê Sửa đổi/Bổ sung ──")
-    try:
-        amend_stats = kg.get_amendment_stats()
-        for key, count in amend_stats.items():
-            print(f"  {key:<30}: {count:>5}")
-    except Exception as e:
-        print(f"  [WARN] Không lấy được amendment stats: {e}")
-
+    # ── 5. Stats ───────────────────────────────────────────────────
+    stats = kg.stats()
     kg.close()
 
+    summary = {
+        "chunks":         len(chunks),
+        "articles":       len(article_ids),
+        "entities":       total_entities,
+        "llm_edges":      total_edges,
+        "refers_to":      total_refs,
+        "neo4j_stats":    stats,
+    }
+    print(f"\n[ingest] DONE  {law_id}")
+    for k, v in summary.items():
+        print(f"  {k:<14}: {v}")
+    return summary
 
+
+def _select_extraction_chunks(chunks: list[LawChunk]) -> list[LawChunk]:
+    """
+    Tránh chạy NER+LLM lặp trên (Điều, các Khoản con của Điều đó):
+      - Nếu 1 Điều có ≥ 1 chunk khoan → chỉ extract trên các khoan.
+      - Nếu Điều không bị split → extract trên chunk dieu.
+    """
+    has_khoan: dict[str, bool] = {}
+    for c in chunks:
+        if c.chunk_type == "khoan":
+            has_khoan[c.neo4j_id] = True
+    out = []
+    for c in chunks:
+        if c.chunk_type == "khoan":
+            out.append(c)
+        elif c.chunk_type == "dieu" and not has_khoan.get(c.neo4j_id):
+            out.append(c)
+    return out
+
+
+# ── CLI test ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    run_ingestion()
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("file", help="Đường dẫn file .docx")
+    p.add_argument("--law-id",  required=True, help="VD: LuatAnNinhMang2025")
+    p.add_argument("--ten",     required=True)
+    p.add_argument("--so-hieu", required=True, help="VD: 116/2025/QH15")
+    p.add_argument("--nam",     required=True)
+    p.add_argument("--loai",    default="Luật")
+    p.add_argument("--wipe",    action="store_true")
+    p.add_argument("--no-llm",  action="store_true")
+    args = p.parse_args()
+
+    ingest_docx(
+        args.file, law_id=args.law_id, ten=args.ten,
+        so_hieu=args.so_hieu, nam=args.nam, loai=args.loai,
+        wipe=args.wipe, use_llm=not args.no_llm,
+    )

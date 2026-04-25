@@ -1,23 +1,20 @@
-# ── Core ─────────────────────────────────────────────
+# Core
 python-docx>=1.1.0
-numpy>=1.26.0
- 
-# ── Vector RAG ───────────────────────────────────────
-qdrant-client>=1.9.0
-sentence-transformers>=3.0.0     # bge-m3 embedding
- 
-# ── Graph RAG ────────────────────────────────────────
-neo4j>=5.20.0
- 
-# ── NER ──────────────────────────────────────────────
-transformers>=4.40.0
-torch>=2.1.0                     # CPU mode đủ dùng
- 
-# ── LLM providers (chọn 1) ───────────────────────────
-google-generativeai>=0.8.0       # Gemini
-# openai>=1.30.0                 # OpenAI
-# anthropic>=0.30.0              # Anthropic
- 
-# ── Dev / debug ──────────────────────────────────────
 python-dotenv>=1.0.0
- 
+numpy>=1.26.0
+requests>=2.32.0
+
+# Vector RAG
+qdrant-client>=1.9.0
+sentence-transformers>=3.0.0
+
+# Graph RAG / NER
+neo4j>=5.20.0
+transformers>=4.40.0
+torch>=2.1.0
+underthesea>=6.8.4
+
+# Optional LLM providers
+google-generativeai>=0.8.0
+# openai>=1.30.0
+# anthropic>=0.30.0

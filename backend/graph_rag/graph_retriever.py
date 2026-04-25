@@ -1,118 +1,112 @@
 """
-graph_rag/graph_retriever.py
-Truy vấn Knowledge Graph để lấy context cho Graph RAG.
+graph_retriever.py — Truy vấn KG cho Graph RAG (schema ontology v1.0).
 
-Luồng:
-  1. Nhận neo4j_ids từ Vector RAG (top-k chunks)
-  2. Với mỗi DieuLuat → lấy subgraph 1-hop
-  3. Format thành context string cho LLM
-  4. ★ Bao gồm thông tin sửa đổi/bãi bỏ/chuyển tiếp
+Đầu vào: list ARTICLE id (vd 'LuatAnNinhMang2025_dieu_15') từ Vector RAG.
+Đầu ra: context string đã format cho LLM.
+
+Subgraph 1-hop quanh ARTICLE:
+  - Cấu trúc: LAW, CHAPTER, CLAUSE
+  - Quan hệ: REFERS_TO ↔ ARTICLE
+  - Entities được mention trong điều: MENTIONS → (LEGAL_ACTOR, DATA, ...)
+  - Edge ngữ nghĩa nội bộ: lấy các edge có article_id = current
 """
-
 from __future__ import annotations
-from neo4j_loader import Neo4jLegalKG
+
+from .neo4j_loader import Neo4jKG
 
 
 class GraphRetriever:
-
-    def __init__(self, kg: Neo4jLegalKG):
+    def __init__(self, kg: Neo4jKG):
         self.kg = kg
 
-    def retrieve_context(self, neo4j_ids: list[str]) -> str:
-        """
-        Nhận list neo4j_id (DieuLuat IDs từ Qdrant payload),
-        truy vấn Neo4j lấy subgraph context.
-        Trả về context string cho LLM.
-        """
-        if not neo4j_ids:
+    # ----------------------------------------------------------------
+    def retrieve_context(self, article_ids: list[str]) -> str:
+        if not article_ids:
             return ""
-
-        # Dedup và giữ thứ tự
-        seen: set[str] = set()
-        unique_ids = []
-        for nid in neo4j_ids:
-            if nid not in seen:
-                seen.add(nid)
-                unique_ids.append(nid)
-
-        parts = []
-        for dieu_id in unique_ids:
-            node_data = self.kg.get_dieu_with_neighbors(dieu_id)
-            if not node_data:
+        seen, unique = set(), []
+        for aid in article_ids:
+            if aid in seen:
                 continue
-            parts.append(self._format_node(node_data))
+            seen.add(aid)
+            unique.append(aid)
 
-        return "\n\n".join(parts)
+        parts = [self._format(aid) for aid in unique]
+        return "\n\n---\n\n".join(p for p in parts if p)
 
-    def _format_node(self, data: dict) -> str:
-        """Format subgraph data thành text dễ đọc cho LLM."""
-        lines = [f"Điều {data['so']}. {data['ten']}"]
+    # ----------------------------------------------------------------
+    def _format(self, article_id: str) -> str:
+        with self.kg.driver.session() as s:
+            row = s.run(
+                """
+                MATCH (a:ARTICLE {id: $aid})
+                OPTIONAL MATCH (l:LAW)-[:HAS_ARTICLE]->(a)
+                OPTIONAL MATCH (a)-[:HAS_CLAUSE]->(k:CLAUSE)
+                OPTIONAL MATCH (a)-[:REFERS_TO]->(r:ARTICLE)
+                OPTIONAL MATCH (a)-[:MENTIONS]->(ent)
+                RETURN a, l.label AS law,
+                       collect(DISTINCT k.content) AS clauses,
+                       collect(DISTINCT r.id)      AS refs,
+                       collect(DISTINCT {label: ent.label, type: labels(ent)[0]}) AS entities
+                """,
+                aid=article_id,
+            ).single()
+            if not row or not row["a"]:
+                return ""
 
-        # ★ NEW: Thông tin hiệu lực
-        if not data.get("hieu_luc", True):
-            lines.append("⚠️ ĐIỀU NÀY ĐÃ BỊ BÃI BỎ / HẾT HIỆU LỰC")
+            edges = list(s.run(
+                """
+                MATCH (a)-[r]->(b)
+                WHERE r.article_id = $aid
+                RETURN a.label AS frm, type(r) AS rtype,
+                       r.modality AS modality,
+                       r.condition AS condition, r.exception AS exception,
+                       r.scope AS scope, r.time AS time,
+                       b.label AS to
+                LIMIT 30
+                """,
+                aid=article_id,
+            ))
 
-        # ★ NEW: Loại Điều sửa đổi
-        amendment_type = data.get("amendment_type")
-        if amendment_type:
-            amend_labels = {
-                "sua_doi":     "Điều sửa đổi, bổ sung",
-                "bai_bo":      "Điều bãi bỏ",
-                "hieu_luc":    "Điều hiệu lực thi hành",
-                "chuyen_tiep": "Điều quy định chuyển tiếp",
-            }
-            label = amend_labels.get(amendment_type, amendment_type)
-            lines.append(f"[Loại: {label}]")
+        a = row["a"]
+        lines = [f"[{row['law']}] Điều {a['so']}. {a['label']}"]
+        if not a.get("hieu_luc", True):
+            lines.append("⚠️ ĐIỀU NÀY ĐÃ HẾT HIỆU LỰC")
+        if a.get("amendment_type"):
+            lines.append(f"[loại: {a['amendment_type']}]")
 
-        if data.get("noi_dung_tom"):
-            lines.append(f"Nội dung: {data['noi_dung_tom'][:300]}")
+        clauses = [c for c in row["clauses"] if c]
+        if clauses:
+            lines.append("Khoản:")
+            for c in clauses[:10]:
+                lines.append(f"  • {c[:300]}")
 
-        if data.get("khai_niem"):
-            lines.append(f"Khái niệm liên quan: {', '.join(data['khai_niem'][:5])}")
+        ents = [e for e in row["entities"] if e and e.get("label")]
+        if ents:
+            grouped: dict[str, list[str]] = {}
+            for e in ents:
+                grouped.setdefault(e["type"], []).append(e["label"])
+            lines.append("Thực thể được nhắc:")
+            for t, labels in grouped.items():
+                lines.append(f"  • {t}: {', '.join(sorted(set(labels))[:6])}")
 
-        if data.get("hanh_vi_cam"):
-            lines.append(f"Hành vi bị cấm: {'; '.join(data['hanh_vi_cam'][:3])}")
+        if edges:
+            lines.append("Quan hệ trong Điều:")
+            for e in edges:
+                tag = ""
+                attrs = [
+                    f"modality={e['modality']}" if e.get("modality") else None,
+                    f"điều_kiện='{e['condition']}'" if e.get("condition") else None,
+                    f"ngoại_lệ='{e['exception']}'" if e.get("exception") else None,
+                    f"phạm_vi='{e['scope']}'" if e.get("scope") else None,
+                    f"thời_hạn='{e['time']}'" if e.get("time") else None,
+                ]
+                attrs = [a for a in attrs if a]
+                if attrs:
+                    tag = "  [" + " ".join(attrs) + "]"
+                lines.append(f"  • {e['frm']} —{e['rtype']}→ {e['to']}{tag}")
 
-        if data.get("co_quan"):
-            lines.append(f"Cơ quan thực hiện: {', '.join(data['co_quan'][:4])}")
-
-        if data.get("doi_tuong"):
-            lines.append(f"Áp dụng với: {', '.join(data['doi_tuong'][:4])}")
-
-        if data.get("tham_chieu"):
-            lines.append(f"Tham chiếu: {', '.join(data['tham_chieu'][:4])}")
-
-        # ★ NEW: Quan hệ sửa đổi cấp Điều
-        if data.get("sua_doi_dieu"):
-            lines.append(f"Sửa đổi/bãi bỏ các điều: {', '.join(data['sua_doi_dieu'][:5])}")
-
-        if data.get("bi_sua_doi_boi"):
-            lines.append(f"Đã bị sửa đổi bởi: {', '.join(data['bi_sua_doi_boi'][:5])}")
+        refs = [r for r in row["refs"] if r]
+        if refs:
+            lines.append(f"Tham chiếu đến: {', '.join(refs[:6])}")
 
         return "\n".join(lines)
-
-    def traverse_references(self, dieu_id: str, depth: int = 2) -> list[dict]:
-        """
-        Duyệt các Điều tham chiếu theo chiều sâu.
-        Dùng cho multi-hop reasoning.
-        """
-        visited: set[str] = set()
-        result: list[dict] = []
-
-        def _dfs(nid: str, current_depth: int):
-            if current_depth > depth or nid in visited:
-                return
-            visited.add(nid)
-
-            node = self.kg.get_dieu_with_neighbors(nid)
-            if not node:
-                return
-            result.append(node)
-
-            for ref_ten in node.get("tham_chieu", []):
-                # Tìm ID từ tên (đơn giản hóa)
-                # Trong thực tế cần query Neo4j thêm
-                pass
-
-        _dfs(dieu_id, 0)
-        return result

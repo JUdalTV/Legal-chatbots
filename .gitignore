@@ -208,7 +208,9 @@ __marimo__/
 
 # Project runtime data
 neo4j_data/
+neo4j_storage/
 qdrant_storage/
+models/
 
 # Frontend build artifacts
 frontend/node_modules/

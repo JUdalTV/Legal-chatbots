@@ -1,156 +1,164 @@
 """
-ontology.py
-Định nghĩa Ontology (schema) cho Legal Knowledge Graph.
+Legal Knowledge Graph Ontology v1.0 (theo legal_ontology.docx)
 
-Node Labels:
-  ┌─ Cấu trúc văn bản (từ Rule/chunker) ──────────────────────┐
-  │  VanBanPhapLuat  → Chuong → DieuLuat → KhoanMuc           │
-  └───────────────────────────────────────────────────────────┘
-  ┌─ Semantic / Nội dung (từ Rule-based extractor) ────────────┐
-  │  KhaiNiemPhapLy   : khái niệm được định nghĩa trong luật  │
-  │  HanhViBiCam      : hành vi bị nghiêm cấm                 │
-  └───────────────────────────────────────────────────────────┘
-  ┌─ Actors (từ NER — chỉ ORG/PER) ───────────────────────────┐
-  │  CoQuanNhaNuoc    : Bộ Công an, Chính phủ, UBND...        │
-  │  DoanhNghiep      : doanh nghiệp viễn thông, CNTT...      │
-  │  ToChucKhac       : tổ chức chính trị, xã hội...          │
-  │  ChucDanh         : Bộ trưởng, Thủ tướng... (NER PER)    │
-  └───────────────────────────────────────────────────────────┘
-
-Edge Types:
-  Cấu trúc:
-    (VanBanPhapLuat)-[:CO_CHUONG]        ->(Chuong)
-    (VanBanPhapLuat)-[:CO_DIEU]          ->(DieuLuat)
-    (Chuong)        -[:CO_DIEU]          ->(DieuLuat)
-    (DieuLuat)      -[:CO_KHOAN]         ->(KhoanMuc)
-  Nội dung:
-    (DieuLuat)      -[:DINH_NGHIA]       ->(KhaiNiemPhapLy)
-    (DieuLuat)      -[:QUY_DINH_CAM]     ->(HanhViBiCam)
-    (DieuLuat)      -[:GIAO_TRACH_NHIEM] ->(CoQuanNhaNuoc)
-    (DieuLuat)      -[:AP_DUNG_VOI]      ->(DoanhNghiep|ToChucKhac)
-    (DieuLuat)      -[:GIAO_QUYEN_HAN]   ->(ChucDanh)
-  Liên kết:
-    (DieuLuat)      -[:THAM_CHIEU]       ->(DieuLuat)
-    (VanBanPhapLuat)-[:BAI_BO]           ->(VanBanPhapLuat)
-    (VanBanPhapLuat)-[:SUA_DOI_BO_SUNG]  ->(VanBanPhapLuat)
-  Sửa đổi chi tiết (cấp Điều):
-    (DieuLuat)      -[:SUA_DOI_DIEU]     ->(DieuLuat)      ★ NEW
-    (DieuLuat)      -[:BAI_BO_DIEU]      ->(DieuLuat)      ★ NEW
-    (DieuLuat)      -[:THAY_THE_CUM_TU]  ->(DieuLuat)      ★ NEW
+5 lớp:
+  L1 Structural   — cấu trúc văn bản          → 100% NODE
+  L2 Normative    — chủ thể / hành vi / quyền → SPLIT (node + edge.modality)
+  L3 Logic        — điều kiện / ngoại lệ      → 0% NODE (chỉ edge attr)
+  L4 Governance   — license / compliance      → SPLIT (node + edge type)
+  L5 System/Data  — hệ thống / dữ liệu        → 100% NODE
+  + Domain extensions: Cyber / Telecom / IT   → 100% NODE
 """
+from __future__ import annotations
 
-# ── Node label constants ─────────────────────────────────────────────
-class NodeLabel:
-    VAN_BAN          = "VanBanPhapLuat"
-    CHUONG           = "Chuong"
-    DIEU             = "DieuLuat"
-    KHOAN            = "KhoanMuc"
-    KHAI_NIEM        = "KhaiNiemPhapLy"
-    HANH_VI_BI_CAM   = "HanhViBiCam"
-    CO_QUAN          = "CoQuanNhaNuoc"
-    DOANH_NGHIEP     = "DoanhNghiep"
-    TO_CHUC_KHAC     = "ToChucKhac"
-    CHUC_DANH        = "ChucDanh"
+# ── L1 Structural ─────────────────────────────────────────────────────
+STRUCTURAL_NODES = {
+    "LAW", "PART", "CHAPTER", "SECTION",
+    "ARTICLE", "CLAUSE", "POINT", "APPENDIX",
+}
+
+# ── L2 Normative — SPLIT ──────────────────────────────────────────────
+# Tạo node:
+NORMATIVE_NODES = {
+    "LEGAL_ACTOR", "LEGAL_OBJECT", "LEGAL_ACTION",
+    "RIGHT", "VIOLATION", "SANCTION", "LEGAL_CONCEPT",
+}
+# Không tạo node — gắn vào edge.modality:
+EDGE_MODALITY = {"OBLIGATION", "PROHIBITION", "PERMISSION"}
+
+# ── L3 Logic — KHÔNG NODE ─────────────────────────────────────────────
+# Toàn bộ là edge property. Map: NER label → key trên edge.
+LOGIC_ROLE_OF = {
+    "CONDITION":      "condition",
+    "EXCEPTION":      "exception",
+    "SCOPE":          "scope",
+    "TIME":           "time",
+    "STATUS":         "status",
+    "CLASSIFICATION": "classification",
+    "LEVEL":          "level",
+}
+EDGE_LOGIC = set(LOGIC_ROLE_OF.keys())
+
+# ── L4 Governance — SPLIT ─────────────────────────────────────────────
+GOVERNANCE_NODES = {"LICENSE", "CERTIFICATE"}
+# Không tạo node — dùng làm edge type/role:
+EDGE_GOVERNANCE = {
+    "AUTHORIZATION", "COMPLIANCE", "AUDIT",
+    "INSPECTION", "ENFORCEMENT",
+}
+
+# ── L5 System/Data ────────────────────────────────────────────────────
+SYSTEM_NODES = {
+    "SYSTEM", "DATA", "DATA_TYPE", "DATABASE",
+    "PLATFORM", "NETWORK", "INFRASTRUCTURE",
+}
+
+# ── Domain extensions ─────────────────────────────────────────────────
+CYBER_NODES = {
+    "CYBER_ACTOR", "THREAT", "ATTACK", "VULNERABILITY",
+    "SECURITY_MEASURE", "SECURITY_POLICY", "INCIDENT", "RISK", "IMPACT",
+}
+TELECOM_NODES = {
+    "TELECOM_OPERATOR", "SERVICE", "SUBSCRIBER", "NETWORK_RESOURCE",
+    "BANDWIDTH", "INTERCONNECTION", "TARIFF",
+}
+IT_NODES = {
+    "IT_ACTOR", "SOFTWARE", "APPLICATION", "DIGITAL_PLATFORM",
+    "IT_SERVICE", "STANDARD", "TECHNICAL_REGULATION",
+    "DEVELOPMENT", "DEPLOYMENT", "OPERATION",
+}
+
+ALL_NODE_TYPES = (
+    STRUCTURAL_NODES | NORMATIVE_NODES | GOVERNANCE_NODES | SYSTEM_NODES
+    | CYBER_NODES | TELECOM_NODES | IT_NODES
+)
+ALL_EDGE_ATTR_TYPES = EDGE_MODALITY | EDGE_LOGIC | EDGE_GOVERNANCE
+
+# ── Layer lookup ──────────────────────────────────────────────────────
+LAYER_OF: dict[str, str] = {}
+for _set, _layer in [
+    (STRUCTURAL_NODES, "structural"),
+    (NORMATIVE_NODES,  "normative"),
+    (GOVERNANCE_NODES, "governance"),
+    (SYSTEM_NODES,     "system"),
+    (CYBER_NODES,      "cyber"),
+    (TELECOM_NODES,    "telecom"),
+    (IT_NODES,         "it"),
+]:
+    for _t in _set:
+        LAYER_OF[_t] = _layer
 
 
-# ── Edge type constants ──────────────────────────────────────────────
-class EdgeType:
-    CO_CHUONG         = "CO_CHUONG"
-    CO_DIEU           = "CO_DIEU"
-    CO_KHOAN          = "CO_KHOAN"
-    DINH_NGHIA        = "DINH_NGHIA"
-    QUY_DINH_CAM      = "QUY_DINH_CAM"
-    GIAO_TRACH_NHIEM  = "GIAO_TRACH_NHIEM"
-    AP_DUNG_VOI       = "AP_DUNG_VOI"
-    GIAO_QUYEN_HAN    = "GIAO_QUYEN_HAN"
-    THAM_CHIEU        = "THAM_CHIEU"
-    # ── Quan hệ liên luật (cấp VanBan) ──────────────────────
-    BAI_BO            = "BAI_BO"
-    SUA_DOI_BO_SUNG   = "SUA_DOI_BO_SUNG"
+# ── Catalog quan hệ (cho LLM prompt) ──────────────────────────────────
+RELATION_CATALOG: dict[str, list[str]] = {
+    "structural":   ["HAS_PART", "HAS_CHAPTER", "HAS_ARTICLE", "HAS_CLAUSE",
+                     "HAS_POINT", "PART_OF"],
+    "semantic":     ["DEFINES", "GOVERNS", "APPLIES_TO", "REQUIRES",
+                     "PROHIBITS", "GRANTS", "ALLOWS",
+                     "CREATES_RIGHT", "IMPOSES_OBLIGATION"],
+    "violation":    ["VIOLATES", "PENALIZED_BY", "LEADS_TO_SANCTION",
+                     "ENFORCED_BY"],
+    "governance":   ["REQUIRES_LICENSE", "ISSUED_BY", "REVOKED_BY",
+                     "AUTHORIZES", "SUPERVISED_BY", "COMPLIES_WITH",
+                     "AUDITED_BY", "INSPECTED_BY"],
+    "data":         ["USES", "PROCESSES", "STORES", "SHARES", "COLLECTS",
+                     "DEPLOYS", "OPERATES", "MANAGES"],
+    "cyber":        ["ATTACKS", "TARGETS", "EXPLOITS", "DETECTS",
+                     "PREVENTS", "MITIGATES", "RESPONDS_TO",
+                     "CAUSES", "RESULTS_IN"],
+    "telecom":      ["PROVIDES_SERVICE", "USES_RESOURCE", "ALLOCATED_BY",
+                     "INTERCONNECTS", "CHARGES_FEE", "SERVES"],
+    "it":           ["DEVELOPS", "DEPLOYS", "OPERATES",
+                     "COMPLIES_WITH_STANDARD", "INTEGRATES_WITH"],
+    "cross_law":    ["REFERS_TO", "AMENDS", "SUPERSEDES", "CONFLICTS_WITH"],
+}
+ALL_RELATION_TYPES = {r for rs in RELATION_CATALOG.values() for r in rs}
 
 
-# ── Cypher constraint + index statements ────────────────────────────
-CONSTRAINTS = [
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.VAN_BAN})        REQUIRE n.id   IS UNIQUE",
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.CHUONG})         REQUIRE n.id   IS UNIQUE",
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.DIEU})           REQUIRE n.id   IS UNIQUE",
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.KHOAN})          REQUIRE n.id   IS UNIQUE",
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.KHAI_NIEM})      REQUIRE n.ten  IS UNIQUE",
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.HANH_VI_BI_CAM}) REQUIRE n.ten  IS UNIQUE",
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.CO_QUAN})        REQUIRE n.ten  IS UNIQUE",
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.DOANH_NGHIEP})   REQUIRE n.ten  IS UNIQUE",
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.TO_CHUC_KHAC})   REQUIRE n.ten  IS UNIQUE",
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{NodeLabel.CHUC_DANH})      REQUIRE n.ten  IS UNIQUE",
+# ── Helpers ───────────────────────────────────────────────────────────
+def is_node(etype: str) -> bool:
+    return etype in ALL_NODE_TYPES
+
+
+def is_edge_attr(etype: str) -> bool:
+    return etype in ALL_EDGE_ATTR_TYPES
+
+
+def get_layer(etype: str) -> str:
+    return LAYER_OF.get(etype, "unknown")
+
+
+def edge_attr_role(etype: str) -> tuple[str, str] | None:
+    """
+    Cho NER label, trả (role, key) để gắn lên edge:
+      modality.<key>  → ('modality', 'OBLIGATION'|'PROHIBITION'|'PERMISSION')
+      logic.<key>     → ('logic',    'condition'|'exception'|...)
+      governance.<key>→ ('governance','AUTHORIZATION'|...)
+    """
+    if etype in EDGE_MODALITY:
+        return ("modality", etype)
+    if etype in LOGIC_ROLE_OF:
+        return ("logic", LOGIC_ROLE_OF[etype])
+    if etype in EDGE_GOVERNANCE:
+        return ("governance", etype)
+    return None
+
+
+# ── Cypher schema ─────────────────────────────────────────────────────
+# Mỗi node đều có .id (UUID), .label (text hiển thị). Constraints theo label.
+CONSTRAINTS: list[str] = [
+    f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{lbl}) REQUIRE n.id IS UNIQUE"
+    for lbl in sorted(ALL_NODE_TYPES)
 ]
 
-FULLTEXT_INDEXES = [
-    f"""CREATE FULLTEXT INDEX dieu_fts IF NOT EXISTS
-        FOR (d:{NodeLabel.DIEU}) ON EACH [d.ten, d.noi_dung_tom]""",
-    f"""CREATE FULLTEXT INDEX khainiemphaplyfts IF NOT EXISTS
-        FOR (kn:{NodeLabel.KHAI_NIEM}) ON EACH [kn.ten, kn.dinh_nghia]""",
-    f"""CREATE FULLTEXT INDEX hanhvibicam_fts IF NOT EXISTS
-        FOR (hv:{NodeLabel.HANH_VI_BI_CAM}) ON EACH [hv.ten, hv.mo_ta]""",
+FULLTEXT_INDEXES: list[str] = [
+    """CREATE FULLTEXT INDEX article_fts IF NOT EXISTS
+       FOR (a:ARTICLE) ON EACH [a.label, a.content]""",
+    """CREATE FULLTEXT INDEX clause_fts IF NOT EXISTS
+       FOR (k:CLAUSE)  ON EACH [k.content]""",
+    """CREATE FULLTEXT INDEX entity_fts IF NOT EXISTS
+       FOR (n:LEGAL_ACTOR|LEGAL_CONCEPT|LEGAL_ACTION|VIOLATION|SANCTION
+              |LICENSE|CERTIFICATE
+              |SYSTEM|DATA|DATA_TYPE|DATABASE|PLATFORM|NETWORK|INFRASTRUCTURE)
+       ON EACH [n.label]""",
 ]
-
-
-# ── Mapping: law_name → Điều đặc biệt ────────────────────────────────
-GIAI_THICH_DIEU = {
-    "LuatAnNinhMang2025": "2",
-    "LuatCNTT2006":       "4",
-    "LuatVienThong2023":  "3",
-}
-
-NGHIEM_CAM_DIEU = {
-    "LuatAnNinhMang2025": "7",
-    "LuatCNTT2006":       "12",
-    "LuatVienThong2023":  "9",
-}
-
-LIEN_LUAT_DIEU = {
-    "LuatAnNinhMang2025": ["43", "44"],
-    "LuatCNTT2006":       [],
-    "LuatVienThong2023":  ["71", "72"],
-}
-
-# ★ NEW: Mapping điều sửa đổi/bổ sung chi tiết
-SUA_DOI_DIEU = {
-    "LuatAnNinhMang2025": ["43"],         # Điều 43: sửa đổi luật liên quan
-    "LuatCNTT2006":       [],
-    "LuatVienThong2023":  ["71"],          # Điều 71: sửa đổi luật liên quan
-}
-
-# ★ NEW: Mapping điều hiệu lực thi hành
-HIEU_LUC_DIEU = {
-    "LuatAnNinhMang2025": ["44"],         # Điều 44: hiệu lực thi hành
-    "LuatCNTT2006":       [],
-    "LuatVienThong2023":  ["72"],          # Điều 72: hiệu lực thi hành
-}
-
-# ★ NEW: Mapping điều chuyển tiếp
-CHUYEN_TIEP_DIEU = {
-    "LuatAnNinhMang2025": ["45"],         # Điều 45: điều khoản chuyển tiếp
-    "LuatCNTT2006":       [],
-    "LuatVienThong2023":  ["73"],          # Điều 73: quy định chuyển tiếp
-}
-
-# Metadata cố định
-VAN_BAN_META = {
-    "LuatAnNinhMang2025": {
-        "so_hieu": "116/2025/QH15",
-        "ten":     "Luật An ninh mạng",
-        "nam":     "2025",
-        "loai":    "Luật",
-    },
-    "LuatCNTT2006": {
-        "so_hieu": "67/2006/QH11",
-        "ten":     "Luật Công nghệ thông tin",
-        "nam":     "2006",
-        "loai":    "Luật",
-    },
-    "LuatVienThong2023": {
-        "so_hieu": "24/2023/QH15",
-        "ten":     "Luật Viễn thông",
-        "nam":     "2023",
-        "loai":    "Luật",
-    },
-}
