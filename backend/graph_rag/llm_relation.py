@@ -20,6 +20,7 @@ Endpoint: OpenAI-compatible chat/completions (vLLM / llama.cpp / LM Studio).
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import Optional
 
@@ -28,33 +29,117 @@ import requests
 from .ontology import RELATION_CATALOG, EDGE_MODALITY, LOGIC_ROLE_OF, EDGE_GOVERNANCE
 
 
-DEFAULT_ENDPOINT = "http://localhost:8000/v1/chat/completions"
-DEFAULT_MODEL    = "Qwen3.5-9B"
+DEFAULT_ENDPOINT = "http://100.119.186.48:8000/v1/chat/completions"
+DEFAULT_MODEL    = "Qwen/Qwen3.5-9B"
 DEFAULT_TIMEOUT  = 120
+DEFAULT_DISABLE_THINKING = os.getenv("LLM_DISABLE_THINKING", "1").lower() not in {"0", "false", "no"}
 
 
 # ── Prompt ────────────────────────────────────────────────────────────
-_SYSTEM_PROMPT = """Bạn là chuyên gia trích xuất quan hệ pháp lý.
-Đầu vào: 1 đoạn văn bản pháp luật + danh sách thực thể (đã được nhận diện sẵn).
-Nhiệm vụ: tìm các QUAN HỆ giữa các thực thể, BÁM SÁT ontology dưới đây.
+_SYSTEM_PROMPT = """Bạn là chuyên gia trích xuất quan hệ pháp lý từ văn bản luật Việt Nam.
 
-Quy tắc bắt buộc:
-1. CHỈ tạo edge giữa 2 thực thể CÓ TRONG danh sách entities — không bịa thực thể mới.
-2. `from_id` và `to_id` PHẢI khớp chính xác `id` trong danh sách entities.
-3. `type` phải nằm trong RELATION_TYPES được liệt kê.
-4. Nếu quan hệ mang sắc thái OBLIGATION/PROHIBITION/PERMISSION → ghi vào `modality`.
-5. CONDITION/EXCEPTION/SCOPE/TIME → ghi text gốc vào field tương ứng (string ngắn).
-6. `evidence` là TRÍCH NGUYÊN VĂN từ đoạn input (≤ 200 ký tự), KHÔNG paraphrase.
-7. Trả về CHỈ JSON, không markdown, không giải thích.
+=== ĐẦU VÀO ===
+- `text`: đoạn văn bản pháp luật (1 điều/khoản)
+- `entities`: danh sách thực thể đã nhận diện, mỗi thực thể có `id` và `type`
 
-OUTPUT FORMAT (JSON strict):
+=== NHIỆM VỤ ===
+Tìm các QUAN HỆ có căn cứ rõ ràng trong `text` giữa các thực thể trong `entities`.
+
+=== RELATION TYPES (chỉ dùng các type sau) ===
+
+Nhóm cấu trúc:
+  HAS_PART · HAS_CHAPTER · HAS_ARTICLE · HAS_CLAUSE · HAS_POINT · PART_OF
+
+Nhóm ngữ nghĩa pháp lý:
+  DEFINES · GOVERNS · APPLIES_TO · REQUIRES · PROHIBITS
+  GRANTS · ALLOWS · CREATES_RIGHT · IMPOSES_OBLIGATION
+
+Nhóm vi phạm & chế tài:
+  VIOLATES · LEADS_TO_SANCTION · ENFORCED_BY
+
+Nhóm quản trị:
+  REQUIRES_LICENSE · ISSUED_BY · REVOKED_BY · AUTHORIZES
+  SUPERVISES · AUDITS · INSPECTS · COMPLIES_WITH · SUPERVISED_BY_AGENCY
+
+Nhóm hành động:
+  DETECTS · RESPONDS_TO · PREVENTS · MITIGATES · CAUSES
+  TARGETS · PROCESSES · STORES · USES · MANAGES · OPERATES
+  PROVIDES_SERVICE · DEVELOPS
+
+Nhóm cross-law:
+  REFERS_TO · AMENDS · SUPERSEDES
+
+=== QUY TẮC BẮT BUỘC ===
+
+R1. CHỈ tạo edge giữa 2 thực thể CÓ TRONG `entities` — không bịa entity mới.
+R2. `from_id` và `to_id` phải khớp chính xác `id` trong `entities`.
+R3. `type` phải là một trong các RELATION TYPES liệt kê ở trên.
+R4. DIRECTION: `from` là CHỦ THỂ thực hiện hành động, `to` là ĐỐI TƯỢNG chịu tác động.
+    VÍ DỤ ĐÚNG:  Bộ Công an —SUPERVISES→ hệ thống thông tin
+    VÍ DỤ SAI:   Bộ Công an —SUPERVISED_BY→ hệ thống thông tin  ← ngược chiều
+R5. `modality`: ghi "OBLIGATION" / "PERMISSION" / "PROHIBITION" nếu text dùng
+    "có trách nhiệm", "phải", "được phép", "bị cấm", "không được" — null nếu không rõ.
+R6. `condition`: trích nguyên văn mệnh đề "nếu...", "khi...", "trong trường hợp..." (≤ 120 ký tự).
+R7. `exception`: trích nguyên văn mệnh đề "trừ...", "ngoại trừ...", "không áp dụng..." (≤ 120 ký tự).
+R8. `scope`: trích nguyên văn phạm vi áp dụng nếu có (≤ 80 ký tự).
+R9. `evidence`: trích nguyên văn câu/mệnh đề làm căn cứ — ưu tiên trích trọn câu, tối đa 300 ký tự.
+R10. Nếu không tìm được quan hệ nào có căn cứ rõ ràng → trả về `{"edges": []}`.
+R11. Không tạo edge trùng lặp (cùng from_id, to_id, type).
+R12. Mỗi edge phải có `evidence` — không được để null.
+
+=== VÍ DỤ (few-shot) ===
+
+Input:
+{
+  "text": "Bộ Công an có trách nhiệm thẩm định an ninh mạng, giám sát an ninh mạng đối với hệ thống thông tin quan trọng về an ninh quốc gia, trừ hệ thống thông tin quân sự.",
+  "entities": [
+    {"id": "actor_bo_cong_an", "type": "LEGAL_ACTOR", "label": "Bộ Công an"},
+    {"id": "sys_httt_quoc_gia", "type": "SYSTEM", "label": "hệ thống thông tin quan trọng về an ninh quốc gia"},
+    {"id": "sys_httt_quan_su", "type": "SYSTEM", "label": "hệ thống thông tin quân sự"}
+  ]
+}
+
+Output:
 {"edges": [
-  {"from_id":"...", "to_id":"...", "type":"REQUIRES_LICENSE",
-   "modality":"OBLIGATION", "condition":null, "exception":null,
-   "scope":null, "time":null, "evidence":"..."}
+  {
+    "from_id": "actor_bo_cong_an",
+    "to_id": "sys_httt_quoc_gia",
+    "type": "SUPERVISES",
+    "modality": "OBLIGATION",
+    "condition": null,
+    "exception": "trừ hệ thống thông tin quân sự",
+    "scope": "hệ thống thông tin quan trọng về an ninh quốc gia",
+    "time": null,
+    "evidence": "Bộ Công an có trách nhiệm thẩm định an ninh mạng, giám sát an ninh mạng đối với hệ thống thông tin quan trọng về an ninh quốc gia"
+  },
+  {
+    "from_id": "actor_bo_cong_an",
+    "to_id": "sys_httt_quoc_gia",
+    "type": "AUDITS",
+    "modality": "OBLIGATION",
+    "condition": null,
+    "exception": "trừ hệ thống thông tin quân sự",
+    "scope": "hệ thống thông tin quan trọng về an ninh quốc gia",
+    "time": null,
+    "evidence": "Bộ Công an có trách nhiệm thẩm định an ninh mạng, giám sát an ninh mạng đối với hệ thống thông tin quan trọng về an ninh quốc gia"
+  }
 ]}
-"""
 
+=== OUTPUT FORMAT ===
+Trả về CHỈ JSON hợp lệ, không markdown, không giải thích, không prefix.
+Schema bắt buộc cho mỗi edge:
+{
+  "from_id":   string,         // id trong entities
+  "to_id":     string,         // id trong entities
+  "type":      string,         // từ RELATION TYPES
+  "modality":  string | null,  // OBLIGATION | PERMISSION | PROHIBITION | null
+  "condition": string | null,
+  "exception": string | null,
+  "scope":     string | null,
+  "time":      string | null,
+  "evidence":  string          // bắt buộc, trích nguyên văn
+}
+"""
 
 def _build_user_prompt(chunk_text: str, entities: list[dict]) -> str:
     rel_block = "\n".join(
@@ -98,6 +183,26 @@ def _parse_json(content: str) -> dict:
         if not m:
             raise
         return json.loads(m.group(0))
+
+
+def _extract_message_content(data: dict) -> Optional[str]:
+    """Handle small response-shape differences across OpenAI-compatible servers."""
+    choices = data.get("choices")
+    if not choices:
+        return None
+    choice = choices[0]
+    message = choice.get("message") if isinstance(choice, dict) else None
+    if isinstance(message, dict):
+        content = message.get("content")
+        if isinstance(content, str) and content.strip():
+            return content
+        reasoning = message.get("reasoning_content")
+        if isinstance(reasoning, str) and reasoning.strip():
+            return reasoning
+    text = choice.get("text") if isinstance(choice, dict) else None
+    if isinstance(text, str) and text.strip():
+        return text
+    return None
 
 
 # ── Validation ────────────────────────────────────────────────────────
@@ -144,13 +249,15 @@ class LlmRelationExtractor:
                  api_key:  Optional[str] = None,
                  timeout:  int = DEFAULT_TIMEOUT,
                  temperature: float = 0.0,
-                 max_tokens:  int = 2048):
+                 max_tokens:  int = 4096,
+                 disable_thinking: bool = DEFAULT_DISABLE_THINKING):
         self.endpoint    = endpoint
         self.model       = model
         self.api_key     = api_key
         self.timeout     = timeout
         self.temperature = temperature
         self.max_tokens  = max_tokens
+        self.disable_thinking = disable_thinking
 
     # ----------------------------------------------------------------
     def extract(self, chunk_text: str, entities: list[dict]) -> list[dict]:
@@ -173,6 +280,11 @@ class LlmRelationExtractor:
             "max_tokens":  self.max_tokens,
             "response_format": {"type": "json_object"},  # vLLM/Qwen hỗ trợ
         }
+        if self.disable_thinking:
+            # Qwen thinking models may return only message.reasoning and leave
+            # message.content as null unless thinking is disabled.
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
+
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -183,14 +295,25 @@ class LlmRelationExtractor:
                 json=payload, timeout=self.timeout,
             )
             resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
-        except (requests.RequestException, KeyError, IndexError) as ex:
+            data = resp.json()
+            content = _extract_message_content(data)
+            if content is None:
+                print(
+                    "[llm_relation] LLM response has no text content. "
+                    f"Raw response: {json.dumps(data, ensure_ascii=False)[:500]}"
+                )
+                return []
+        except requests.HTTPError as ex:
+            body = (ex.response.text or "")[:500] if ex.response is not None else ""
+            print(f"[llm_relation] LLM call failed: {ex}. Response body: {body}")
+            return []
+        except (requests.RequestException, KeyError, IndexError, ValueError) as ex:
             print(f"[llm_relation] LLM call failed: {ex}")
             return []
 
         try:
             data = _parse_json(content)
-        except json.JSONDecodeError as ex:
+        except (json.JSONDecodeError, TypeError) as ex:
             print(f"[llm_relation] JSON parse failed: {ex}\n--- raw ---\n{content[:500]}")
             return []
 

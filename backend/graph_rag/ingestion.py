@@ -21,15 +21,17 @@ from __future__ import annotations
 
 import os
 import re
+import socket
 import sys
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 # Cho phép import trực tiếp module trong cùng package khi chạy file này standalone
 _THIS = Path(__file__).resolve()
 sys.path.insert(0, str(_THIS.parent.parent))           # backend/
-from vector_rag.extractor import extract_docx, clean_text  # noqa: E402
-from vector_rag.chunker import chunk_law, LawChunk         # noqa: E402
+from vector_rag.extractor import extract_text, clean_text       # noqa: E402
+from vector_rag.chunker   import chunk_law, LawChunk, LAW_META  # noqa: E402
 
 from graph_rag.ner_extractor import get_ner_extractor, split_sentences  # noqa: E402
 from graph_rag.tham_chieu  import extract_tham_chieu                    # noqa: E402
@@ -40,13 +42,16 @@ from graph_rag.ontology import (                                        # noqa: 
 )
 
 
+SO_HIEU_TO_LAW_ID = {meta["so_hieu"]: lid for lid, meta in LAW_META.items()}
+
+
 # ── Defaults ─────────────────────────────────────────────────────────
 NEO4J_URI      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
 NEO4J_USER     = os.getenv("NEO4J_USER",     "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "12345678")
 
-LLM_ENDPOINT   = os.getenv("LLM_ENDPOINT",   "http://localhost:8000/v1/chat/completions")
-LLM_MODEL      = os.getenv("LLM_MODEL",      "Qwen3.5-9B")
+LLM_ENDPOINT   = os.getenv("LLM_ENDPOINT",   "http://100.119.186.48:8000/v1/chat/completions")
+LLM_MODEL      = os.getenv("LLM_MODEL",      "Qwen/Qwen3.5-9B")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
@@ -119,6 +124,27 @@ def _attach_edge_attrs(edges: list[dict], edge_attrs: list[dict]) -> list[dict]:
     return edges
 
 
+def _ensure_llm_endpoint_available(endpoint: str, timeout: float = 2.0) -> None:
+    """
+    Fail fast when the OpenAI-compatible LLM server is not listening.
+    Otherwise ingestion prints the same connection error once per chunk.
+    """
+    parsed = urlparse(endpoint)
+    host = parsed.hostname
+    if not host:
+        raise RuntimeError(f"Invalid LLM endpoint: {endpoint!r}")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return
+    except OSError as ex:
+        raise RuntimeError(
+            "LLM endpoint is not reachable: "
+            f"{endpoint}. Start an OpenAI-compatible server at this address, "
+            "set --llm-endpoint/LLM_ENDPOINT to the correct URL, or rerun with --no-llm."
+        ) from ex
+
+
 # ── Main API ──────────────────────────────────────────────────────────
 def ingest_docx(file_path: str | Path,
                 law_id:   str,
@@ -146,12 +172,15 @@ def ingest_docx(file_path: str | Path,
     print(f"\n{'=' * 60}\n[ingest] {law_id}  ({so_hieu})\n  file: {file_path}")
 
     # ── 1. Extract + chunk ─────────────────────────────────────────
-    raw   = extract_docx(str(file_path))
+    raw   = extract_text(str(file_path))
     text  = clean_text(raw)
     chunks: list[LawChunk] = chunk_law(text, law_id)
     print(f"  chunks: {len(chunks)}  "
           f"(dieu={sum(1 for c in chunks if c.chunk_type == 'dieu')}, "
           f"khoan={sum(1 for c in chunks if c.chunk_type == 'khoan')})")
+
+    if use_llm:
+        _ensure_llm_endpoint_available(llm_endpoint)
 
     # ── 2. Setup Neo4j ─────────────────────────────────────────────
     kg = Neo4jKG(neo4j_uri, neo4j_user, neo4j_password)
@@ -191,13 +220,32 @@ def ingest_docx(file_path: str | Path,
         kg.upsert_clause(clause_id, chunk.khoan_so,
                          chunk.content, chunk.neo4j_id)
 
-    # ── 4. Per-chunk: NER + Rule + LLM ─────────────────────────────
+    # ── 4a. Rule-based REFERS_TO — chạy 1 lần / Điều, dùng full content ──
+    total_refs = 0
+    for chunk in chunks:
+        if chunk.chunk_type != "dieu":
+            continue
+        article_id = chunk.neo4j_id
+        refs = extract_tham_chieu(chunk.content, chunk.dieu_so, law_id)
+        for r in refs:
+            if r["cross_law"]:
+                target_lid = SO_HIEU_TO_LAW_ID.get(r["to_law_id"])
+                if target_lid:
+                    to_aid = f"{target_lid}_dieu_{r['to_dieu_so']}"
+                else:
+                    safe = r["to_law_id"].replace("/", "_")
+                    to_aid = f"{safe}_dieu_{r['to_dieu_so']}"
+            else:
+                to_aid = f"{r['to_law_id']}_dieu_{r['to_dieu_so']}"
+            kg.add_refers_to(article_id, to_aid, r["context"], r["cross_law"])
+            total_refs += 1
+
+    # ── 4b. Per-chunk: NER + LLM ───────────────────────────────────
     ner = get_ner_extractor(ner_model_dir)
     llm = LlmRelationExtractor(endpoint=llm_endpoint, model=llm_model) if use_llm else None
 
     total_entities = 0
     total_edges    = 0
-    total_refs     = 0
 
     # Chỉ chạy NER+LLM trên cấp khoan (granular hơn) hoặc trên dieu nếu Điều
     # không bị split khoan. → tránh trùng lặp.
@@ -243,20 +291,7 @@ def ingest_docx(file_path: str | Path,
             )
         total_entities += len(nodes_to_upsert)
 
-        # 4c. Rule-based REFERS_TO (chỉ chạy 1 lần / Điều, dùng full content Điều)
-        if chunk.chunk_type == "dieu" or chunk.khoan_so in (None, "1"):
-            refs = extract_tham_chieu(chunk.content, chunk.dieu_so, law_id)
-            for r in refs:
-                to_aid = (
-                    f"{r['to_law_id']}_dieu_{r['to_dieu_so']}"
-                    if not r["cross_law"]
-                    else f"{r['to_law_id']}_dieu_{r['to_dieu_so']}"
-                )
-                kg.add_refers_to(article_id, to_aid,
-                                 r["context"], r["cross_law"])
-                total_refs += 1
-
-        # 4d. LLM extract edges
+        # 4c. LLM extract edges
         if not llm or len(nodes_to_upsert) < 2:
             continue
         # Gắn sentence_idx vào edges (dùng sentence của from-node làm proxy)

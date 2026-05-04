@@ -1,118 +1,93 @@
 """
-ingestion.py
-Pipeline hoàn chỉnh cho Vector RAG:
-  docx → extract → clean → chunk → embed → upsert Qdrant
+ingestion.py — Vector RAG ingest pipeline cho 1 file luật.
 
-Chạy:
-  python ingestion.py
+  .docx | .pdf
+    → extract_text + clean_text                       (vector_rag/extractor.py)
+    → parse_to_articles → chunk_legal_document         (chunker_v2.py)
+    → Embedder.encode (fp16)                           (embedder.py)
+    → VectorStore.upsert_chunks (Qdrant int8 collection) (vector_store.py)
 """
+from __future__ import annotations
 
-import os
-import json
 from pathlib import Path
+from typing import Optional
 
-from extractor import extract_docx, clean_text
-from chunker import chunk_law, LawChunk
-from embedder import Embedder
-from vector_store import VectorStore
-
-
-# ── Cấu hình đường dẫn ────────────────────────────────────────────
-BASE_DIR = Path(__file__).parent.parent  # backend/
-
-RAW_FILES = {
-    "LuatAnNinhMang2025": BASE_DIR / "data" / "raw" / "luatanm2025.docx",
-    "LuatCNTT2006":       BASE_DIR / "data" / "raw" / "luatcntt2006.docx",
-    "LuatVienThong2023":  BASE_DIR / "data" / "raw" / "luatvienthong2023.docx",
-}
-
-CHUNKS_CACHE_DIR = BASE_DIR / "data" / "chunks"   # lưu chunks.json để debug
-
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+from .chunker_v2 import LegalChunk, chunk_legal_document, parse_to_articles
+from .embedder import Embedder
+from .extractor import clean_text, extract_text
+from .vector_store import VectorStore
 
 
-def run_ingestion(recreate_collection: bool = False):
-    """
-    Chạy toàn bộ pipeline Vector RAG cho 3 luật.
-    """
-    CHUNKS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+def ingest_file(
+    file_path: str | Path,
+    law_id: str,
+    *,
+    qdrant_host: str = "localhost",
+    qdrant_port: int = 6333,
+    recreate: bool = False,
+    device: str = "gpu",
+    min_tokens: int = 100,
+    max_tokens: int = 500,
+    embed_batch: int = 24,
+) -> dict:
+    """Chạy E2E ingest cho 1 file. Trả dict thống kê."""
+    file_path = Path(file_path)
+    if not file_path.exists():
+        raise FileNotFoundError(file_path)
 
-    # 1. Khởi tạo Qdrant
-    store = VectorStore(host=QDRANT_HOST, port=QDRANT_PORT)
-    store.init_collection(recreate=recreate_collection)
+    print(f"\n{'=' * 60}\n[vector_rag] ingest {law_id}\n  file: {file_path}")
 
-    # 2. Khởi tạo Embedder
-    embedder = Embedder(device="gpu")
+    # 1. Extract + clean
+    raw  = extract_text(str(file_path))
+    text = clean_text(raw)
 
-    all_chunks: list[LawChunk] = []
+    # 2. Embedder (load early — count_tokens cần tokenizer)
+    embedder = Embedder(device=device)
 
-    # 3. Extract → Clean → Chunk từng luật
-    for law_name, file_path in RAW_FILES.items():
-        if not file_path.exists():
-            print(f"[WARN] Không tìm thấy file: {file_path}, bỏ qua.")
-            continue
+    # 3. Parse + chunk
+    articles = parse_to_articles(text, law_id)
+    chunks: list[LegalChunk] = chunk_legal_document(
+        articles,
+        law_id=law_id,
+        count_tokens=embedder.count_tokens,
+        min_tokens=min_tokens,
+        max_tokens=max_tokens,
+    )
+    n_summary = sum(1 for c in chunks if c.chunk_type == "article_summary")
+    n_clause  = sum(1 for c in chunks if c.chunk_type == "clause")
+    n_points  = sum(1 for c in chunks if c.chunk_type == "point_group")
+    print(f"  articles={len(articles)}  chunks={len(chunks)} "
+          f"(summary={n_summary}, clause={n_clause}, point_group={n_points})")
 
-        print(f"\n{'='*50}")
-        print(f"Processing: {law_name}")
-        print(f"File: {file_path}")
+    if not chunks:
+        print("[vector_rag] Không có chunk nào — kiểm tra file/law_id.")
+        return {"chunks": 0, "articles": len(articles)}
 
-        raw_text = extract_docx(str(file_path))
-        clean = clean_text(raw_text)
-        chunks = chunk_law(clean, law_name)
+    # 4. Init collection (cần biết dim từ embedder)
+    store = VectorStore(host=qdrant_host, port=qdrant_port)
+    store.init_collection(dim=embedder.dim, recreate=recreate)
 
-        print(f"  → {len(chunks)} chunks "
-              f"(dieu: {sum(1 for c in chunks if c.chunk_type=='dieu')}, "
-              f"khoan: {sum(1 for c in chunks if c.chunk_type=='khoan')})")
+    # 5. Embed
+    print(f"  embedding {len(chunks)} chunks (batch={embed_batch})...")
+    vectors = embedder.encode(
+        [c.content for c in chunks],
+        batch_size=embed_batch,
+        show_progress=True,
+    )
 
-        # Lưu chunks ra JSON để debug/kiểm tra
-        cache_path = CHUNKS_CACHE_DIR / f"{law_name}_chunks.json"
-        with open(cache_path, "w", encoding="utf-8") as f:
-            json.dump(
-                [
-                    {
-                        "chunk_id":       c.chunk_id,
-                        "neo4j_id":       c.neo4j_id,
-                        "chunk_type":     c.chunk_type,
-                        "law_name":       c.law_name,
-                        "chuong_so":      c.chuong_so,
-                        "chuong_ten":     c.chuong_ten,
-                        "dieu_so":        c.dieu_so,
-                        "dieu_ten":       c.dieu_ten,
-                        "khoan_so":       c.khoan_so,
-                        "amendment_type": c.amendment_type,
-                        "affected_laws":  c.affected_laws,
-                        "content":        c.content[:300] + "...",
-                    }
-                    for c in chunks
-                ],
-                f, ensure_ascii=False, indent=2
-            )
-        print(f"  → Cache: {cache_path}")
-        all_chunks.extend(chunks)
+    # 6. Upsert
+    store.upsert_chunks(chunks, vectors)
 
-    if not all_chunks:
-        print("\n[ERROR] Không có chunk nào! Kiểm tra đường dẫn file.")
-        return
-
-    print(f"\nTổng: {len(all_chunks)} chunks từ {len(RAW_FILES)} luật")
-
-    # 4. Embed theo batch
-    print("\nBắt đầu embedding...")
-    texts_for_embed = [c.content_for_embed for c in all_chunks]
-    dense_vectors = embedder.encode(texts_for_embed, batch_size=16, show_progress=True)
-
-    # 5. Upsert vào Qdrant
-    print("\nUpsert vào Qdrant...")
-    store.upsert_chunks(all_chunks, dense_vectors)
-
-    # 6. Kiểm tra
     info = store.get_collection_info()
-    print(f"\n✅ Hoàn tất Vector RAG ingestion!")
-    print(f"   Collection: law_chunks")
-    print(f"   Vectors count: {info['vectors_count']}")
-    print(f"   Points count:  {info['points_count']}")
-
-
-if __name__ == "__main__":
-    run_ingestion(recreate_collection=True)
+    print(f"\n[vector_rag] DONE  points={info['points_count']}  status={info['status']}")
+    return {
+        "law_id":         law_id,
+        "articles":       len(articles),
+        "chunks":         len(chunks),
+        "by_type": {
+            "article_summary": n_summary,
+            "clause":          n_clause,
+            "point_group":     n_points,
+        },
+        "qdrant":         info,
+    }

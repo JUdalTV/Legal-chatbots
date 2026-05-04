@@ -53,6 +53,9 @@ SYSTEM_NODES = {
     "PLATFORM", "NETWORK", "INFRASTRUCTURE",
 }
 
+# ── Geo / jurisdiction (NER label LOCATION) ───────────────────────────
+GEO_NODES = {"LOCATION"}
+
 # ── Domain extensions ─────────────────────────────────────────────────
 CYBER_NODES = {
     "CYBER_ACTOR", "THREAT", "ATTACK", "VULNERABILITY",
@@ -60,7 +63,7 @@ CYBER_NODES = {
 }
 TELECOM_NODES = {
     "TELECOM_OPERATOR", "SERVICE", "SUBSCRIBER", "NETWORK_RESOURCE",
-    "BANDWIDTH", "INTERCONNECTION", "TARIFF",
+    "BANDWIDTH", "INTERCONNECTION", "TARIFF", "QOS_STANDARD",
 }
 IT_NODES = {
     "IT_ACTOR", "SOFTWARE", "APPLICATION", "DIGITAL_PLATFORM",
@@ -70,7 +73,7 @@ IT_NODES = {
 
 ALL_NODE_TYPES = (
     STRUCTURAL_NODES | NORMATIVE_NODES | GOVERNANCE_NODES | SYSTEM_NODES
-    | CYBER_NODES | TELECOM_NODES | IT_NODES
+    | GEO_NODES | CYBER_NODES | TELECOM_NODES | IT_NODES
 )
 ALL_EDGE_ATTR_TYPES = EDGE_MODALITY | EDGE_LOGIC | EDGE_GOVERNANCE
 
@@ -81,6 +84,7 @@ for _set, _layer in [
     (NORMATIVE_NODES,  "normative"),
     (GOVERNANCE_NODES, "governance"),
     (SYSTEM_NODES,     "system"),
+    (GEO_NODES,        "geo"),
     (CYBER_NODES,      "cyber"),
     (TELECOM_NODES,    "telecom"),
     (IT_NODES,         "it"),

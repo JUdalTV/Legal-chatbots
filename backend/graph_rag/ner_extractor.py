@@ -37,7 +37,7 @@ from underthesea import word_tokenize as _ut_word_tokenize
 # ── Default config ───────────────────────────────────────────────────
 _DEFAULT_MODEL_DIR = Path(__file__).resolve().parents[2] / "models"
 MAX_LENGTH         = 512
-SCORE_THRESHOLD    = 0.5
+SCORE_THRESHOLD    = 0.6
 
 
 # =====================================================================
@@ -238,6 +238,87 @@ def _fix_data_type(entities: list[dict], text: str) -> list[dict]:
 
 
 # =====================================================================
+# LOCATION + SYSTEM whitelist (cell 12 demo §3b)
+# =====================================================================
+_LOCATION_PHRASES = sorted([
+    "ngoài lãnh thổ Việt Nam", "lãnh thổ Việt Nam",
+    "trong lãnh thổ Việt Nam", "Việt Nam",
+    "nước ngoài", "trong nước", "quốc tế",
+    "Hà Nội", "TP. Hồ Chí Minh", "TP.HCM", "Hồ Chí Minh",
+    "Đà Nẵng", "Cần Thơ", "Hải Phòng",
+], key=len, reverse=True)
+
+
+def _rule_location(text: str) -> list[dict]:
+    found: list[dict] = []
+    used: list[tuple[int, int]] = []
+    tl = text.lower()
+    for phrase in _LOCATION_PHRASES:
+        sp = phrase.lower()
+        idx = 0
+        while True:
+            pos = tl.find(sp, idx)
+            if pos < 0:
+                break
+            end = pos + len(phrase)
+            if not any(s <= pos < e or s < end <= e for s, e in used):
+                found.append({
+                    "type":       "LOCATION",
+                    "text":       text[pos:end],
+                    "score":      1.0,
+                    "char_start": pos,
+                    "char_end":   end,
+                    "source":     "rule",
+                })
+                used.append((pos, end))
+            idx = pos + 1
+    return found
+
+
+_SYSTEM_PHRASES = sorted([
+    "hệ thống thông tin", "hệ thống máy chủ", "hệ thống mạng",
+    "hệ thống lõi", "hệ thống giám sát", "hệ thống phát hiện xâm nhập",
+    "cơ sở dữ liệu", "máy chủ", "hạ tầng thông tin", "hạ tầng số",
+    "hạ tầng kỹ thuật số", "nền tảng số", "điện toán đám mây",
+    "đám mây", "phần mềm độc hại", "tường lửa", "phần mềm",
+    "ứng dụng di động", "thiết bị đầu cuối",
+], key=len, reverse=True)
+
+
+def _rule_system(text: str, existing: list[dict]) -> list[dict]:
+    """Bắt SYSTEM bị model bỏ sót — không chồng span với entity đã có."""
+    existing_texts = {
+        e["text"].lower().replace("_", " ").strip()
+        for e in existing if e["type"] == "SYSTEM"
+    }
+    used = [(e.get("char_start", -1), e.get("char_end", -1)) for e in existing]
+    found: list[dict] = []
+    tl = text.lower()
+    for phrase in _SYSTEM_PHRASES:
+        if phrase in existing_texts:
+            continue
+        idx = 0
+        while True:
+            pos = tl.find(phrase, idx)
+            if pos < 0:
+                break
+            end = pos + len(phrase)
+            if not any(s != -1 and s <= pos < e for s, e in used):
+                found.append({
+                    "type":       "SYSTEM",
+                    "text":       text[pos:end],
+                    "score":      0.9,
+                    "char_start": pos,
+                    "char_end":   end,
+                    "source":     "rule",
+                })
+                used.append((pos, end))
+                existing_texts.add(phrase)
+            idx = pos + 1
+    return found
+
+
+# =====================================================================
 # Main extractor
 # =====================================================================
 class NerExtractor:
@@ -354,17 +435,21 @@ class NerExtractor:
             if e["type"] not in {"PART", "CHAPTER", "SECTION", "POINT", "APPENDIX"}
         ]
 
-        entities = model_ents + _rule_structural(text)
+        # rule-based enrichment (structural + location)
+        entities = model_ents + _rule_structural(text) + _rule_location(text)
         entities = _fix_yeu_cau(entities, words)
         entities = _fix_telecom(entities)
         entities = _fix_data_type(entities, text)
+        # SYSTEM whitelist sau cùng — không chồng span với entity đã có
+        entities += _rule_system(text, entities)
 
-        # dedup theo (type, text-normalized)
-        seen, deduped = set(), []
-        for e in sorted(entities, key=lambda x: x.get("char_start", 0)):
+        # dedup keep-best-score (giống cell 12 demo)
+        best: dict[tuple[str, str], dict] = {}
+        for e in entities:
             key = (e["type"], e["text"].lower().replace("_", " ").strip())
-            if key not in seen:
-                seen.add(key); deduped.append(e)
+            if key not in best or e["score"] > best[key]["score"]:
+                best[key] = e
+        deduped = sorted(best.values(), key=lambda e: e.get("char_start", 0))
 
         # gắn sentence_idx
         sents = split_sentences(text)

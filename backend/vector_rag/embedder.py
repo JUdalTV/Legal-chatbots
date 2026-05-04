@@ -1,84 +1,84 @@
 """
 embedder.py
-T?o dense vector embedding t? text d?ng mainguyen9/vietlegal-harrier-0.6b.
+Dense embedding qua AITeamVN/Vietnamese_Embedding (fp16 trên GPU).
 
-L? do ch?n model:
-  - T?i ?u cho ng? li?u ph?p l? ti?ng Vi?t
-  - H? tr? semantic embedding cho truy h?i lu?t
-  - Chu?n h?a vector (normalize=True) ?? d?ng COSINE similarity
+API:
+    emb = Embedder(device="gpu")           # auto cuda → fp16
+    vecs = emb.encode(["text1", ...])      # list[list[float]]
+    n    = emb.count_tokens("text")        # int — dùng cho chunker
+    d    = emb.dim                         # vector dimension
 """
-
 from __future__ import annotations
-from sentence_transformers import SentenceTransformer
-from typing import List
+
+from typing import List, Optional
+
 import torch
+from sentence_transformers import SentenceTransformer
 
 
 class Embedder:
-    """
-    Wrapper quanh SentenceTransformer vietlegal-harrier-0.6b.
-    Lazy-load model khi l?n ??u g?i encode().
-    """
+    """Wrapper SentenceTransformer + fp16 + tokenizer-based token counter."""
 
-    MODEL_NAME = "mainguyen9/vietlegal-harrier-0.6b"
+    MODEL_NAME = "AITeamVN/Vietnamese_Embedding"
 
     def __init__(self, device: str = "gpu", use_half: bool = True):
         self.device = self._resolve_device(device)
         self.use_half = use_half and self.device.startswith("cuda")
-        self._model = None
+        self._model: Optional[SentenceTransformer] = None
 
+    # ── Device ──────────────────────────────────────────────────────
     @staticmethod
     def _resolve_device(device: str) -> str:
-        normalized = (device or "").strip().lower()
-
-        if normalized in {"gpu", "cuda", "cuda:0"}:
-
+        d = (device or "").strip().lower()
+        if d in {"gpu", "cuda", "cuda:0"}:
             if not torch.cuda.is_available():
                 raise RuntimeError(
-                    "Kh?ng t?m th?y CUDA GPU. H?y ki?m tra driver/CUDA ho?c truy?n device='cpu'."
+                    "CUDA không khả dụng. Truyền device='cpu' nếu chạy không GPU."
                 )
             return "cuda"
+        return d or "cpu"
 
-        return normalized or "cpu"
-
-    def _load(self):
+    # ── Lazy load ──────────────────────────────────────────────────
+    def _load(self) -> SentenceTransformer:
         if self._model is None:
-            model_kwargs = {}
+            kwargs = {}
             if self.use_half:
-                model_kwargs["torch_dtype"] = torch.float16
-
+                kwargs["torch_dtype"] = torch.float16
             self._model = SentenceTransformer(
                 self.MODEL_NAME,
                 device=self.device,
                 trust_remote_code=True,
-                model_kwargs=model_kwargs,
+                model_kwargs=kwargs,
             )
-
             if self.use_half:
                 self._model.half()
+        return self._model
 
+    # ── Encode ─────────────────────────────────────────────────────
     def encode(
         self,
         texts: List[str],
-        batch_size: int = 16,
+        batch_size: int = 24,
         show_progress: bool = True,
     ) -> List[List[float]]:
-        """
-        Tr? v? list vector float ?? normalize ?? search cosine.
-        """
         if not texts:
             return []
-
-        self._load()
-        vectors = self._model.encode(
+        m = self._load()
+        vecs = m.encode(
             texts,
             batch_size=batch_size,
             normalize_embeddings=True,
             show_progress_bar=show_progress,
         )
-        return [v.tolist() for v in vectors]
+        return [v.tolist() for v in vecs]
+
+    # ── Token counter (dùng tokenizer của embedder) ────────────────
+    def count_tokens(self, text: str) -> int:
+        m = self._load()
+        # SentenceTransformer.tokenize trả dict tensors → lấy input_ids[0]
+        ids = m.tokenize([text])["input_ids"][0]
+        return int(len(ids))
 
     @property
     def dim(self) -> int:
-        self._load()
-        return int(self._model.get_sentence_embedding_dimension())
+        return int(self._load().get_sentence_embedding_dimension())
