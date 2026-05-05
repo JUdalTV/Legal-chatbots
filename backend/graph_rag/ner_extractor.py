@@ -35,7 +35,7 @@ from underthesea import word_tokenize as _ut_word_tokenize
 
 
 # ── Default config ───────────────────────────────────────────────────
-_DEFAULT_MODEL_DIR = Path(__file__).resolve().parents[2] / "models"
+_DEFAULT_MODEL_DIR = Path(__file__).resolve().parents[2] / "ner_models"
 MAX_LENGTH         = 512
 SCORE_THRESHOLD    = 0.6
 

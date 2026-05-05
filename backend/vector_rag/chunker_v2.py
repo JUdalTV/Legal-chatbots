@@ -81,8 +81,8 @@ def chunk_legal_document(
     *,
     law_id: str,
     count_tokens: Callable[[str], int],
-    min_tokens: int = 80,
-    max_tokens: int = 400,
+    min_tokens: int = 100,
+    max_tokens: int = 500,
     overlap_context: bool = True,
 ) -> list[LegalChunk]:
     """Hierarchical chunking — xem header file."""

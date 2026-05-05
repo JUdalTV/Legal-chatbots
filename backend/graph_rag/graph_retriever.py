@@ -56,7 +56,7 @@ class GraphRetriever:
             edges = list(s.run(
                 """
                 MATCH (a)-[r]->(b)
-                WHERE r.article_id = $aid
+                WHERE r.article_id = $aid OR $aid IN coalesce(r.article_ids, [])
                 RETURN a.label AS frm, type(r) AS rtype,
                        r.modality AS modality,
                        r.condition AS condition, r.exception AS exception,

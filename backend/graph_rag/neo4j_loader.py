@@ -126,22 +126,24 @@ class Neo4jKG:
                 MATCH (l:LAW {id: $law_id})
                 MERGE (l)-[:HAS_ARTICLE]->(a)
             """, id=article_id, so=so, ten=ten,
-                 content=content[:2000], amend=amendment_type,
+                 content=content, amend=amendment_type,
                  chapter_id=chapter_id, law_id=law_id)
 
     def upsert_clause(self, clause_id: str, so: str, content: str,
                       article_id: str):
+        article_so = article_id.split("_dieu_")[-1]
         with self.driver.session() as s:
             s.run("""
                 MERGE (k:CLAUSE {id: $id})
-                SET k.label   = 'Khoản ' + $so,
+                SET k.label   = 'Điều ' + $article_so + ', Khoản ' + $so,
                     k.so      = $so,
+                    k.article_id = $article_id,
                     k.content = $content,
                     k.layer   = 'structural'
                 WITH k
                 MATCH (a:ARTICLE {id: $article_id})
                 MERGE (a)-[:HAS_CLAUSE]->(k)
-            """, id=clause_id, so=so, content=content[:1500],
+            """, id=clause_id, so=so, article_so=article_so, content=content[:1500],
                  article_id=article_id)
 
     # ════════════════════════════════════════════════════════════════
@@ -150,6 +152,7 @@ class Neo4jKG:
     def upsert_entity(self, node_id: str, etype: str, label: str,
                       *, article_id: Optional[str] = None,
                       clause_id:   Optional[str] = None,
+                      canonical_key: Optional[str] = None,
                       sentence_idx: Optional[int] = None,
                       score: Optional[float] = None,
                       subclass: Optional[str] = None,
@@ -163,23 +166,76 @@ class Neo4jKG:
         with self.driver.session() as s:
             s.run(f"""
                 MERGE (n:{lbl} {{id: $id}})
-                SET n.label    = $label,
-                    n.layer    = $layer,
+                ON CREATE SET n.label = $label,
+                              n.aliases = [],
+                              n.article_ids = [],
+                              n.clause_ids = [],
+                              n.sources = [],
+                              n.mention_count = 0
+                SET n.layer = $layer,
+                    n.entity_type = $etype,
+                    n.canonical_key = coalesce(n.canonical_key, $canonical_key),
                     n.subclass = coalesce($subclass, n.subclass),
-                    n.score    = coalesce($score, n.score),
-                    n.source   = coalesce($source, n.source)
-            """, id=node_id, label=label, layer=layer,
-                 subclass=subclass, score=score, source=source)
+                    n.score = CASE
+                        WHEN $score IS NULL THEN n.score
+                        WHEN n.score IS NULL OR $score > n.score THEN $score
+                        ELSE n.score
+                    END,
+                    n.source = coalesce(n.source, $source),
+                    n.aliases = CASE
+                        WHEN $label IS NULL THEN coalesce(n.aliases, [])
+                        WHEN $label IN coalesce(n.aliases, []) THEN coalesce(n.aliases, [])
+                        ELSE coalesce(n.aliases, []) + $label
+                    END,
+                    n.article_ids = CASE
+                        WHEN $article_id IS NULL THEN coalesce(n.article_ids, [])
+                        WHEN $article_id IN coalesce(n.article_ids, []) THEN coalesce(n.article_ids, [])
+                        ELSE coalesce(n.article_ids, []) + $article_id
+                    END,
+                    n.clause_ids = CASE
+                        WHEN $clause_id IS NULL THEN coalesce(n.clause_ids, [])
+                        WHEN $clause_id IN coalesce(n.clause_ids, []) THEN coalesce(n.clause_ids, [])
+                        ELSE coalesce(n.clause_ids, []) + $clause_id
+                    END,
+                    n.sources = CASE
+                        WHEN $source IS NULL THEN coalesce(n.sources, [])
+                        WHEN $source IN coalesce(n.sources, []) THEN coalesce(n.sources, [])
+                        ELSE coalesce(n.sources, []) + $source
+                    END,
+                    n.mention_count = coalesce(n.mention_count, 0) + 1
+            """, id=node_id, label=label, canonical_key=canonical_key, layer=layer,
+                 etype=etype, subclass=subclass, score=score, source=source,
+                 article_id=article_id, clause_id=clause_id)
 
-            anchor_id = clause_id or article_id
-            if anchor_id:
-                # Anchor có thể là CLAUSE hoặc ARTICLE → MATCH bằng id (cả 2 label đều unique)
+            if article_id:
                 s.run(f"""
-                    MATCH (anchor) WHERE anchor.id = $anchor
+                    MATCH (a:ARTICLE {{id: $article_id}})
                     MATCH (n:{lbl} {{id: $id}})
-                    MERGE (anchor)-[m:MENTIONS]->(n)
-                    SET  m.sentence_idx = $sidx
-                """, anchor=anchor_id, id=node_id, sidx=sentence_idx)
+                    MERGE (a)-[m:MENTIONS]->(n)
+                    SET m.source = coalesce(m.source, $source),
+                        m.count = coalesce(m.count, 0) + 1,
+                        m.sentence_idx = coalesce(m.sentence_idx, $sidx),
+                        m.sentence_idxs = CASE
+                            WHEN $sidx IS NULL THEN coalesce(m.sentence_idxs, [])
+                            WHEN $sidx IN coalesce(m.sentence_idxs, []) THEN coalesce(m.sentence_idxs, [])
+                            ELSE coalesce(m.sentence_idxs, []) + $sidx
+                        END
+                """, article_id=article_id, id=node_id, sidx=sentence_idx, source=source)
+
+            if clause_id:
+                s.run(f"""
+                    MATCH (k:CLAUSE {{id: $clause_id}})
+                    MATCH (n:{lbl} {{id: $id}})
+                    MERGE (k)-[m:MENTIONS]->(n)
+                    SET m.source = coalesce(m.source, $source),
+                        m.count = coalesce(m.count, 0) + 1,
+                        m.sentence_idx = coalesce(m.sentence_idx, $sidx),
+                        m.sentence_idxs = CASE
+                            WHEN $sidx IS NULL THEN coalesce(m.sentence_idxs, [])
+                            WHEN $sidx IN coalesce(m.sentence_idxs, []) THEN coalesce(m.sentence_idxs, [])
+                            ELSE coalesce(m.sentence_idxs, []) + $sidx
+                        END
+                """, clause_id=clause_id, id=node_id, sidx=sentence_idx, source=source)
 
     # ════════════════════════════════════════════════════════════════
     # Edges from LLM extraction
@@ -200,29 +256,101 @@ class Neo4jKG:
         if rel_type not in ALL_RELATION_TYPES:
             return
         rt = _safe_rel(rel_type)
+        evidence = (evidence or "").strip()[:300]
         with self.driver.session() as s:
             s.run(f"""
                 MATCH (a {{id: $from_id}})
                 MATCH (b {{id: $to_id}})
                 MERGE (a)-[r:{rt}]->(b)
-                SET r.modality       = $modality,
-                    r.condition      = $condition,
-                    r.exception      = $exception,
-                    r.scope          = $scope,
-                    r.time           = $time,
-                    r.status         = $status,
-                    r.classification = $classification,
-                    r.level          = $level,
-                    r.evidence       = $evidence,
-                    r.article_id     = $article_id,
-                    r.sentence_idx   = $sentence_idx,
-                    r.source         = $source
+                ON CREATE SET r.evidences = [],
+                              r.article_ids = [],
+                              r.sources = [],
+                              r.sentence_idxs = [],
+                              r.conditions = [],
+                              r.exceptions = [],
+                              r.scopes = [],
+                              r.times = [],
+                              r.statuses = [],
+                              r.classifications = [],
+                              r.levels = [],
+                              r.mention_count = 0
+                SET r.modality       = coalesce(r.modality, $modality),
+                    r.condition      = coalesce(r.condition, $condition),
+                    r.exception      = coalesce(r.exception, $exception),
+                    r.scope          = coalesce(r.scope, $scope),
+                    r.time           = coalesce(r.time, $time),
+                    r.status         = coalesce(r.status, $status),
+                    r.classification = coalesce(r.classification, $classification),
+                    r.level          = coalesce(r.level, $level),
+                    r.evidence       = CASE
+                        WHEN coalesce(r.evidence, '') = '' AND $evidence <> '' THEN $evidence
+                        ELSE r.evidence
+                    END,
+                    r.article_id     = coalesce(r.article_id, $article_id),
+                    r.sentence_idx   = coalesce(r.sentence_idx, $sentence_idx),
+                    r.source         = coalesce(r.source, $source),
+                    r.evidences = CASE
+                        WHEN $evidence = '' THEN coalesce(r.evidences, [])
+                        WHEN $evidence IN coalesce(r.evidences, []) THEN coalesce(r.evidences, [])
+                        ELSE coalesce(r.evidences, []) + $evidence
+                    END,
+                    r.article_ids = CASE
+                        WHEN $article_id IS NULL THEN coalesce(r.article_ids, [])
+                        WHEN $article_id IN coalesce(r.article_ids, []) THEN coalesce(r.article_ids, [])
+                        ELSE coalesce(r.article_ids, []) + $article_id
+                    END,
+                    r.sources = CASE
+                        WHEN $source IS NULL THEN coalesce(r.sources, [])
+                        WHEN $source IN coalesce(r.sources, []) THEN coalesce(r.sources, [])
+                        ELSE coalesce(r.sources, []) + $source
+                    END,
+                    r.sentence_idxs = CASE
+                        WHEN $sentence_idx IS NULL THEN coalesce(r.sentence_idxs, [])
+                        WHEN $sentence_idx IN coalesce(r.sentence_idxs, []) THEN coalesce(r.sentence_idxs, [])
+                        ELSE coalesce(r.sentence_idxs, []) + $sentence_idx
+                    END,
+                    r.conditions = CASE
+                        WHEN $condition IS NULL OR $condition = '' THEN coalesce(r.conditions, [])
+                        WHEN $condition IN coalesce(r.conditions, []) THEN coalesce(r.conditions, [])
+                        ELSE coalesce(r.conditions, []) + $condition
+                    END,
+                    r.exceptions = CASE
+                        WHEN $exception IS NULL OR $exception = '' THEN coalesce(r.exceptions, [])
+                        WHEN $exception IN coalesce(r.exceptions, []) THEN coalesce(r.exceptions, [])
+                        ELSE coalesce(r.exceptions, []) + $exception
+                    END,
+                    r.scopes = CASE
+                        WHEN $scope IS NULL OR $scope = '' THEN coalesce(r.scopes, [])
+                        WHEN $scope IN coalesce(r.scopes, []) THEN coalesce(r.scopes, [])
+                        ELSE coalesce(r.scopes, []) + $scope
+                    END,
+                    r.times = CASE
+                        WHEN $time IS NULL OR $time = '' THEN coalesce(r.times, [])
+                        WHEN $time IN coalesce(r.times, []) THEN coalesce(r.times, [])
+                        ELSE coalesce(r.times, []) + $time
+                    END,
+                    r.statuses = CASE
+                        WHEN $status IS NULL OR $status = '' THEN coalesce(r.statuses, [])
+                        WHEN $status IN coalesce(r.statuses, []) THEN coalesce(r.statuses, [])
+                        ELSE coalesce(r.statuses, []) + $status
+                    END,
+                    r.classifications = CASE
+                        WHEN $classification IS NULL OR $classification = '' THEN coalesce(r.classifications, [])
+                        WHEN $classification IN coalesce(r.classifications, []) THEN coalesce(r.classifications, [])
+                        ELSE coalesce(r.classifications, []) + $classification
+                    END,
+                    r.levels = CASE
+                        WHEN $level IS NULL OR $level = '' THEN coalesce(r.levels, [])
+                        WHEN $level IN coalesce(r.levels, []) THEN coalesce(r.levels, [])
+                        ELSE coalesce(r.levels, []) + $level
+                    END,
+                    r.mention_count = coalesce(r.mention_count, 0) + 1
             """,
                 from_id=from_id, to_id=to_id,
                 modality=modality, condition=condition, exception=exception,
                 scope=scope, time=time, status=status,
                 classification=classification, level=level,
-                evidence=(evidence or "")[:300],
+                evidence=evidence,
                 article_id=article_id, sentence_idx=sentence_idx,
                 source=source)
 
@@ -241,14 +369,23 @@ class Neo4jKG:
                               b.layer    = 'structural',
                               b.hieu_luc = true
                 MERGE (a)-[r:REFERS_TO]->(b)
-                SET r.evidence  = $context,
+                ON CREATE SET r.evidences = []
+                SET r.evidence  = CASE
+                        WHEN coalesce(r.evidence, '') = '' AND $context <> '' THEN $context
+                        ELSE r.evidence
+                    END,
+                    r.evidences = CASE
+                        WHEN $context = '' THEN coalesce(r.evidences, [])
+                        WHEN $context IN coalesce(r.evidences, []) THEN coalesce(r.evidences, [])
+                        ELSE coalesce(r.evidences, []) + $context
+                    END,
                     r.cross_law = $cross_law,
                     r.source    = 'rule'
             """,
                 from_id=from_article_id,
                 to_id=to_article_id,
                 to_so=to_article_id.split("_dieu_")[-1],
-                context=context[:300],
+                context=(context or "")[:300],
                 cross_law=cross_law)
 
     # ════════════════════════════════════════════════════════════════

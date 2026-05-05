@@ -24,6 +24,10 @@ def extract_docx(path: str) -> str:
 
     raw = "\n".join(lines)
 
+    # Strip footnote refs `[N]` trước merge để không phá pattern "Điều X." / "N."
+    # (VBHN có "Điều 10.[6]" và "9.[2]" — phải normalize trước khi parse line)
+    raw = _strip_footnote_refs(raw)
+
     # Gộp dòng bị wrap: nếu dòng trước không kết thúc bằng dấu câu
     # hoặc bắt đầu bằng chữ thường/số tiếp theo → gộp lại
     raw = _merge_wrapped_lines(raw)
@@ -53,6 +57,9 @@ def extract_pdf(path: str) -> str:
     doc.close()
 
     text = "\n".join(pages)
+
+    # Strip footnote refs sớm (PDF VBHN cũng có thể có)
+    text = _strip_footnote_refs(text)
 
     # Bỏ hyphen wrap cuối dòng: "viễn-\nthông" → "viễnthông"
     text = re.sub(r"-\n(?=\w)", "", text)
@@ -101,8 +108,8 @@ def _merge_wrapped_lines(text: str) -> str:
     buffer = ""
 
     KEEP_NEWLINE_START = re.compile(
-        r"^(Điều\s+\d|Chương\s+[IVX\d]|Mục\s+\d|[1-9]\d*\.\s+[A-ZĐÁÀẢÃẠ]"
-        r"|[a-zđ]\)\s|LUẬT|CỘNG HÒA|QUỐC HỘI)"
+        r"^(Điều\s+\d|Chương\s+[IVX\d]|Mục\s+\d|[1-9]\d*\.\s+\S"
+        r"|[a-zđ]\)\s|LUẬT|CỘNG HÒA|QUỐC HỘI|[_=\-]{5,}\s*$)"
     )
     SENTENCE_END = re.compile(r"[.;:]\s*$")
 
@@ -129,17 +136,60 @@ def _merge_wrapped_lines(text: str) -> str:
     return "\n".join(result)
 
 
+def _strip_vbhn_footnotes(text: str) -> str:
+    """
+    Văn bản hợp nhất (VBHN) có section ghi chú ở cuối, dạng:
+
+        ______________________________
+        [1] Luật Quy hoạch số 21/2017/QH14 ...
+        [2] Khoản này được bãi bỏ theo ...
+
+    Section này chứa lại các "Điều 58", "Điều 53"... của luật khác,
+    nếu để nguyên sẽ bị chunker parse nhầm thành nội dung luật chính.
+    Cắt từ separator dấu gạch dưới hoặc từ footnote `[1]` đầu dòng.
+    """
+    # Pattern 1: separator + nội dung sau (đã bị merge bởi _merge_wrapped_lines)
+    # vd "______________________________ Luật Quy hoạch ..."
+    m = re.search(r"[_=\-]{5,}", text)
+    if m:
+        return text[:m.start()].rstrip()
+    # Pattern 2: footnote 1 đầu dòng (chưa strip [N])
+    m = re.search(r"(?m)^\[1\]\s+", text)
+    if m:
+        return text[:m.start()].rstrip()
+    # Pattern 3: footnote 1 inline (đã strip [1] nhưng pattern còn dấu vết)
+    m = re.search(r"\[1\]\s+(?:Luật|Khoản|Điều|Mục|Điểm)\s+", text)
+    if m:
+        return text[:m.start()].rstrip()
+    return text
+
+
+def _strip_footnote_refs(text: str) -> str:
+    """
+    Strip footnote inline markers `[N]` trong VBHN.
+    VD: "Điều 10.[6] (được bãi bỏ)" → "Điều 10. (được bãi bỏ)"
+        "9.[2] (được bãi bỏ)"        → "9. (được bãi bỏ)"
+        "thông tin[1]."               → "thông tin."
+    """
+    return re.sub(r"\[\d+\]", "", text)
+
+
 def clean_text(text: str) -> str:
     """
     Normalize text sau khi extract:
     - Xóa ký tự rác, chuẩn hóa khoảng trắng
+    - Strip footnote section (VBHN) + [N] markers
     - Giữ nguyên dấu câu tiếng Việt
     """
-    # Xóa ký tự điều khiển (trừ newline)
+    # 1. Cắt section footnote ở cuối (chỉ áp dụng cho VBHN; no-op với luật thường)
+    text = _strip_vbhn_footnotes(text)
+    # 2. Bỏ marker [N] inline
+    text = _strip_footnote_refs(text)
+    # 3. Xóa ký tự điều khiển (trừ newline) — \xa0 cũng được normalize về space
     text = re.sub(r"[^\S\n]+", " ", text)
-    # Chuẩn hóa nhiều newline liên tiếp
+    # 4. Chuẩn hóa nhiều newline liên tiếp
     text = re.sub(r"\n{3,}", "\n\n", text)
-    # Bỏ khoảng trắng đầu/cuối mỗi dòng
+    # 5. Bỏ khoảng trắng đầu/cuối mỗi dòng
     lines = [l.strip() for l in text.split("\n")]
     text = "\n".join(lines)
     return text.strip()

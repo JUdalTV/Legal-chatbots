@@ -91,6 +91,10 @@ LAW_META = {
         "so_hieu": "67/2006/QH11",
         "ten":     "Luật Công nghệ thông tin 2006",
     },
+    "LuatCNTT2025": {
+        "so_hieu": "65/VBHN-VPQH",
+        "ten":     "Luật Công nghệ thông tin (văn bản hợp nhất 2025)",
+    },
     "LuatVienThong2023": {
         "so_hieu": "24/2023/QH15",
         "ten":     "Luật Viễn thông 2023",

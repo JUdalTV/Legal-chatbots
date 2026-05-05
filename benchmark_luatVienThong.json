@@ -1,0 +1,502 @@
+{
+  "metadata": {
+    "title": "Benchmark Results – Luật Viễn thông số 24/2023/QH15",
+    "total_questions": 30
+  },
+  "results": [
+    {
+      "id": "Q001",
+      "difficulty": "easy",
+      "category": "hiệu lực thi hành",
+      "reference": "Điều 72",
+      "question": "Luật Viễn thông số 24/2023/QH15 có hiệu lực thi hành từ ngày nào?",
+      "ground_truth": "Luật Viễn thông số 24/2023/QH15 có hiệu lực thi hành từ ngày 01 tháng 7 năm 2024 (trừ một số quy định riêng về dịch vụ viễn thông cơ bản trên Internet, trung tâm dữ liệu, điện toán đám mây và phí số hiệu mạng có hiệu lực từ ngày 01/01/2025).",
+      "model_answer": "Luật Viễn thông 2023 (số 24/2023/QH15) có hiệu lực thi hành từ ngày 01 tháng 7 năm 2024. Theo đó, các quy định về cung cấp dịch vụ viễn thông cơ bản trên Internet, dịch vụ trung tâm dữ liệu, dịch vụ điện toán đám mây (khoản 3) và quy định về nộp phí duy trì sử dụng số hiệu mạng, lệ phí đăng ký sử dụng số hiệu mạng (khoản 4) sẽ có hiệu lực muộn hơn (từ ngày 01 tháng 01 năm 2025), nhưng ngày hiệu lực chung của toàn bộ Luật là 01/07/2024.",
+      "refined_query": "Theo Luật Viễn thông số 24/2023/QH15, ngày nào là thời điểm chính thức có hiệu lực thi hành toàn bộ các quy định của Luật này?",
+      "citations_matched": "1/1",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.5,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Hiệu lực thi hành của Luật Viễn thông 2023 quy định tại Khoản 1: 'Luật này có hiệu lực thi hành từ ngày 01 tháng 7 năm'"
+      ]
+    },
+    {
+      "id": "Q002",
+      "difficulty": "easy",
+      "category": "định nghĩa",
+      "reference": "Khoản 1 Điều 3",
+      "question": "Viễn thông được định nghĩa như thế nào trong Luật Viễn thông 2023?",
+      "ground_truth": "Viễn thông là việc gửi, truyền, nhận và xử lý ký hiệu, tín hiệu, số liệu, chữ viết, hình ảnh, âm thanh hoặc dạng thông tin khác bằng đường cáp, sóng vô tuyến điện, phương tiện quang học và phương tiện điện từ khác.",
+      "model_answer": "Theo quy định tại Khoản 2 Điều 3 của Luật Viễn thông 2023, hoạt động viễn thông được định nghĩa bao gồm: đầu tư, kinh doanh dịch vụ viễn thông cơ bản, dịch vụ viễn thông giá trị gia tăng, kinh doanh hàng hóa viễn thông; hoạt động viễn thông công ích; cấp, gia hạn, cấp lại, sửa đổi, bổ sung, thu hồi giấy phép viễn thông; kết nối và chia sẻ cơ sở hạ tầng viễn thông; quản lý tài nguyên viễn thông; quản lý tiêu chuẩn, quy chuẩn kỹ thuật, chất lượng và giá dịch vụ viễn thông; xây dựng công trình viễn thông.",
+      "refined_query": "Theo Luật Viễn thông 2023, hoạt động viễn thông được định nghĩa như thế nào? Cần làm rõ các yếu tố cấu thành và phạm vi điều chỉnh của định nghĩa này trong văn bản luật.",
+      "citations_matched": "2/2",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.5,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Căn cứ pháp lý: Khoản 2 Điều 3 Luật Viễn thông 2023."
+      ]
+    },
+    {
+      "id": "Q003",
+      "difficulty": "easy",
+      "category": "định nghĩa",
+      "reference": "Khoản 34 Điều 3",
+      "question": "SIM (bộ xác định thuê bao) là gì theo Luật Viễn thông 2023?",
+      "ground_truth": "SIM (bộ xác định thuê bao) là mạch tích hợp được sử dụng để gắn số thuê bao viễn thông và chứa các dữ liệu, thông tin liên quan khác dùng cho việc cung cấp và sử dụng dịch vụ viễn thông.",
+      "model_answer": "Theo quy định tại Khoản 34 Điều 3 Luật Viễn thông 2023, SIM (Bộ xác định thuê bao) là mạch tích hợp được sử dụng để gắn số thuê bao viễn thông và chứa các dữ liệu, thông tin liên quan khác dùng cho việc cung cấp và sử dụng dịch vụ viễn thông. SIM đóng vai trò gắn kết thuê bao, lưu trữ thông tin và phân biệt thuê bao trong mạng viễn thông. Các quy định về quản lý SIM được chi tiết hóa tại Điều 61 Luật Viễn thông 2023.",
+      "refined_query": "SIM (bộ xác định thuê bao) được định nghĩa và quy định như thế nào tại Luật Viễn thông 2023?",
+      "citations_matched": "2/3",
+      "citations_score": 0.67,
+      "faithfulness_score": 0.33,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Lưu trữ thông tin: Chứa các dữ liệu và thông tin liên quan cần thiết để thực hiện việc cung cấp và sử dụng dịch vụ.",
+        "[?] Phân biệt thuê bao: Kết hợp với định nghĩa về 'Thuê bao viễn thông' (Khoản 32 Điều 3) – là người sử dụng dịch vụ có gắn với việc ấn định tài nguyên viễn thông..."
+      ]
+    },
+    {
+      "id": "Q004",
+      "difficulty": "easy",
+      "category": "định nghĩa",
+      "reference": "Khoản 26 Điều 3",
+      "question": "Tài nguyên viễn thông bao gồm những gì?",
+      "ground_truth": "Tài nguyên viễn thông là tài nguyên quốc gia, bao gồm kho số viễn thông, tài nguyên Internet, phổ tần số vô tuyến điện và quỹ đạo vệ tinh thuộc quyền quản lý của Việt Nam.",
+      "model_answer": "Theo quy định của Luật Viễn thông 2023, tài nguyên viễn thông là tài nguyên quốc gia, bao gồm: (1) Kho số viễn thông; (2) Tài nguyên Internet (tên miền, địa chỉ Internet, số hiệu mạng và tên, số khác thuộc quyền quản lý của Việt Nam, bao gồm tài nguyên Internet Việt Nam và quốc tế); (3) Phổ tần số vô tuyến điện; (4) Quỹ đạo vệ tinh thuộc quyền quản lý của Việt Nam.",
+      "refined_query": "Tài nguyên viễn thông bao gồm những gì?",
+      "citations_matched": "N/A",
+      "citations_score": null,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q005",
+      "difficulty": "easy",
+      "category": "định nghĩa",
+      "reference": "Khoản 29 Điều 3",
+      "question": "Doanh nghiệp viễn thông gồm những loại nào?",
+      "ground_truth": "Doanh nghiệp viễn thông bao gồm hai loại: (1) Doanh nghiệp cung cấp dịch vụ có hạ tầng mạng – là doanh nghiệp thiết lập, sở hữu mạng viễn thông công cộng và cung cấp dịch vụ viễn thông; (2) Doanh nghiệp cung cấp dịch vụ không có hạ tầng mạng – là doanh nghiệp cung cấp dịch vụ viễn thông nhưng không thiết lập, không sở hữu mạng viễn thông công cộng.",
+      "model_answer": "Theo Khoản 29 Điều 3 Luật Viễn thông 2023, doanh nghiệp viễn thông bao gồm hai loại hình chính: (1) Doanh nghiệp cung cấp dịch vụ có hạ tầng mạng: là doanh nghiệp thiết lập, sở hữu mạng viễn thông công cộng và cung cấp dịch vụ viễn thông; (2) Doanh nghiệp cung cấp dịch vụ không có hạ tầng mạng: là doanh nghiệp cung cấp dịch vụ viễn thông nhưng không thiết lập, không sở hữu mạng viễn thông công cộng. Khoản 1 Điều 10 cũng xác định hai hình thức kinh doanh viễn thông tương ứng: kinh doanh dịch vụ viễn thông và kinh doanh hàng hóa viễn thông.",
+      "refined_query": "Doanh nghiệp hoạt động trong lĩnh vực viễn thông được phân loại thành những loại hình nào theo Luật Viễn thông và Luật Doanh nghiệp?",
+      "citations_matched": "6/6",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.75,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Khoản 1 Điều 10 cũng xác định hai hình thức kinh doanh viễn thông tương ứng với các loại hình doanh nghiệp..."
+      ]
+    },
+    {
+      "id": "Q006",
+      "difficulty": "easy",
+      "category": "phạm vi áp dụng",
+      "reference": "Điều 2",
+      "question": "Luật Viễn thông 2023 áp dụng đối với những đối tượng nào?",
+      "ground_truth": "Luật này áp dụng đối với tổ chức, cá nhân Việt Nam và tổ chức, cá nhân nước ngoài trực tiếp tham gia hoặc có liên quan đến hoạt động viễn thông tại Việt Nam.",
+      "model_answer": "Luật Viễn thông 2023 quy định về đối tượng áp dụng tại Điều 1. Tuy nhiên nội dung chi tiết của Điều 1 không xuất hiện đầy đủ trong ngữ cảnh được cung cấp. Dựa trên nguyên tắc chung của các luật viễn thông tại Việt Nam, đối tượng áp dụng thường bao gồm các cơ quan nhà nước, doanh nghiệp viễn thông, người sử dụng dịch vụ viễn thông và các cá nhân, tổ chức khác có liên quan đến hoạt động viễn thông trên lãnh thổ Việt Nam.",
+      "refined_query": "Theo Luật Viễn thông 2023, những đối tượng nào thuộc phạm vi điều chỉnh và chịu sự quản lý nhà nước về hoạt động viễn thông?",
+      "citations_matched": "5/6",
+      "citations_score": 0.83,
+      "faithfulness_score": 0.4,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Để xác định chính xác các đối tượng chịu sự điều chỉnh của Luật này, cần tham chiếu thêm ngữ cảnh pháp lý từ các văn bản liên quan.",
+        "[?] Để có câu trả lời chính xác, cần tra cứu thêm Điều 1 của Luật Viễn thông 2023.",
+        "[?] Nếu dựa trên nguyên tắc chung của các luật viễn thông và an ninh mạng tại Việt Nam (tham chiếu ngữ cảnh), đối tượng áp dụng thường bao gồm..."
+      ]
+    },
+    {
+      "id": "Q007",
+      "difficulty": "easy",
+      "category": "định nghĩa",
+      "reference": "Khoản 15 Điều 3",
+      "question": "Mạng viễn thông công cộng là gì?",
+      "ground_truth": "Mạng viễn thông công cộng là mạng viễn thông do doanh nghiệp viễn thông thiết lập để cung cấp dịch vụ viễn thông, dịch vụ ứng dụng viễn thông cho công chúng nhằm mục đích sinh lợi.",
+      "model_answer": "Theo quy định tại Khoản 15 Điều 3 Luật Viễn thông 2023, mạng viễn thông công cộng là mạng viễn thông do doanh nghiệp viễn thông thiết lập để cung cấp dịch vụ viễn thông, dịch vụ ứng dụng viễn thông cho công chúng nhằm mục đích sinh lợi. Yếu tố cốt lõi để phân biệt với các loại mạng khác (như mạng dùng riêng) là chủ thể thiết lập (doanh nghiệp viễn thông), đối tượng phục vụ (công chúng) và mục đích hoạt động (sinh lợi).",
+      "refined_query": "Theo Luật Viễn thông, mạng viễn thông công cộng là gì? Hãy giải thích định nghĩa, điều kiện thành lập và các quy định pháp luật liên quan đến hoạt động của mạng này.",
+      "citations_matched": "3/3",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.67,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Yếu tố cốt lõi để phân biệt mạng viễn thông công cộng với các loại mạng khác (như mạng dùng riêng) là chủ thể thiết lập, đối tượng phục vụ và mục đích hoạt động."
+      ]
+    },
+    {
+      "id": "Q008",
+      "difficulty": "easy",
+      "category": "quyền người dùng",
+      "reference": "Điểm e Khoản 1 Điều 15",
+      "question": "Người sử dụng dịch vụ viễn thông có quyền khiếu nại về vấn đề gì?",
+      "ground_truth": "Người sử dụng dịch vụ viễn thông có quyền khiếu nại về giá dịch vụ và chất lượng dịch vụ; được hoàn trả tiền sử dụng dịch vụ và bồi thường thiệt hại trực tiếp khác do lỗi của doanh nghiệp viễn thông hoặc đại lý dịch vụ viễn thông gây ra.",
+      "model_answer": "Theo Khoản 1, điểm e Điều 15 Luật Viễn thông 2023, người sử dụng dịch vụ viễn thông có quyền khiếu nại về: (1) Giá dịch vụ: khi cho rằng mức giá không phù hợp hoặc không đúng quy định; (2) Chất lượng dịch vụ: khi chất lượng dịch vụ không đạt cam kết. Ngoài quyền khiếu nại, người sử dụng còn được bảo đảm quyền hoàn trả tiền sử dụng dịch vụ và bồi thường thiệt hại trực tiếp khác nếu thiệt hại do lỗi của doanh nghiệp viễn thông hoặc đại lý gây ra.",
+      "refined_query": "Người sử dụng dịch vụ viễn thông có quyền khiếu nại về những vấn đề gì liên quan đến chất lượng dịch vụ, giá cước, hợp đồng và xử lý sự cố theo quy định của Luật Viễn thông và Luật Bảo vệ quyền lợi người tiêu dùng?",
+      "citations_matched": "2/2",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.25,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Về chất lượng dịch vụ: Người sử dụng có quyền khiếu nại khi chất lượng dịch vụ cung cấp không đạt theo cam kết hoặc tiêu chuẩn đã thỏa thuận.",
+        "[?] Ngoài quyền khiếu nại, người sử dụng còn được pháp luật bảo đảm quyền hoàn trả tiền sử dụng dịch vụ và bồi thường thiệt hại trực tiếp khác.",
+        "[?] Quyền, nghĩa vụ của người sử dụng dịch vụ viễn thông, thuê bao viễn thông – Khoản 1, điểm e, Luật Viễn thông 2023."
+      ]
+    },
+    {
+      "id": "Q009",
+      "difficulty": "easy",
+      "category": "quản lý nhà nước",
+      "reference": "Khoản 2 Điều 69",
+      "question": "Cơ quan nào là đầu mối giúp Chính phủ quản lý nhà nước về viễn thông?",
+      "ground_truth": "Bộ Thông tin và Truyền thông là cơ quan đầu mối giúp Chính phủ thực hiện quản lý nhà nước về viễn thông.",
+      "model_answer": "Theo quy định tại Khoản 2 Điều 69 Luật Viễn thông 2023, cơ quan đầu mối giúp Chính phủ thực hiện quản lý nhà nước về viễn thông là Bộ Thông tin và Truyền thông. Bên cạnh đó, Chính phủ có trách nhiệm thống nhất quản lý nhà nước về lĩnh vực này (Khoản 1 Điều 69), và các Bộ, cơ quan ngang bộ cũng như Ủy ban nhân dân các cấp có trách nhiệm phối hợp hoặc thực hiện quản lý trong phạm vi nhiệm vụ, quyền hạn của mình.",
+      "refined_query": "Cơ quan nào đóng vai trò đầu mối giúp Chính phủ quản lý nhà nước về lĩnh vực viễn thông theo quy định của Luật Viễn thông và Luật Bưu điện?",
+      "citations_matched": "3/3",
+      "citations_score": 1.0,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q010",
+      "difficulty": "easy",
+      "category": "ưu tiên truyền thông tin",
+      "reference": "Điều 7",
+      "question": "Những loại thông tin nào được ưu tiên truyền qua mạng viễn thông?",
+      "ground_truth": "Các loại thông tin được ưu tiên truyền qua mạng viễn thông gồm: (1) Thông tin khẩn cấp phục vụ quốc phòng, an ninh, cơ yếu; (2) Thông tin khẩn cấp phục vụ tìm kiếm, cứu hộ, cứu nạn, phòng chống thiên tai, hỏa hoạn, thảm họa; (3) Thông tin khẩn cấp phục vụ phòng chống dịch bệnh; (4) Trường hợp khác theo quy định của pháp luật về tình trạng khẩn cấp.",
+      "model_answer": "Theo quy định tại Điều 7 Luật Viễn thông 2023, các loại thông tin được ưu tiên truyền qua mạng viễn thông bao gồm: (1) Thông tin khẩn cấp phục vụ quốc phòng, an ninh, cơ yếu; (2) Thông tin khẩn cấp phục vụ tìm kiếm, cứu hộ, cứu nạn, phòng, chống thiên tai, hỏa hoạn, thảm họa khác; (3) Thông tin khẩn cấp phục vụ phòng, chống dịch bệnh; (4) Các trường hợp khác theo quy định của pháp luật về tình trạng khẩn cấp.",
+      "refined_query": "Theo Luật Viễn thông và các văn bản hướng dẫn thi hành, những loại thông tin nào được ưu tiên truyền qua mạng viễn thông?",
+      "citations_matched": "2/2",
+      "citations_score": 1.0,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q011",
+      "difficulty": "medium",
+      "category": "phân loại dịch vụ",
+      "reference": "Khoản 7 Điều 3",
+      "question": "Dịch vụ viễn thông cơ bản và dịch vụ viễn thông giá trị gia tăng khác nhau như thế nào?",
+      "ground_truth": "Dịch vụ viễn thông cơ bản là dịch vụ gửi, truyền, nhận thông tin giữa hai người hoặc một nhóm người sử dụng dịch vụ viễn thông, giữa các thiết bị đầu cuối qua mạng viễn thông. Dịch vụ viễn thông giá trị gia tăng là dịch vụ cung cấp thêm tính năng xử lý, lưu trữ và truy xuất thông tin cho người sử dụng thông qua việc gửi, truyền, nhận thông tin trên mạng viễn thông. Điểm khác biệt cốt lõi là dịch vụ giá trị gia tăng có thêm tính năng xử lý, lưu trữ và truy xuất thông tin, không chỉ đơn thuần là truyền thông tin.",
+      "model_answer": "Dựa trên Khoản 7 Điều 3 Luật Viễn thông 2023: Dịch vụ viễn thông cơ bản là dịch vụ gửi, truyền, nhận thông tin giữa hai người hoặc một nhóm người sử dụng dịch vụ viễn thông, giữa các thiết bị đầu cuối qua mạng viễn thông – đây là dịch vụ nền tảng, đảm bảo khả năng kết nối. Dịch vụ viễn thông giá trị gia tăng là dịch vụ cung cấp thêm tính năng xử lý, lưu trữ và truy xuất thông tin cho người sử dụng thông qua việc gửi, truyền, nhận thông tin trên mạng viễn thông – đây là dịch vụ nâng cao, bổ sung các chức năng xử lý dữ liệu.",
+      "refined_query": "Theo Luật Viễn thông, sự khác biệt giữa dịch vụ viễn thông cơ bản và dịch vụ viễn thông giá trị gia tăng là gì về mặt định nghĩa, nội dung cung cấp và điều kiện cấp phép?",
+      "citations_matched": "2/2",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.33,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Dịch vụ viễn thông cơ bản – Định nghĩa: Là dịch vụ gửi, truyền, nhận thông tin giữa hai người hoặc một nhóm người…",
+        "[?] Dịch vụ viễn thông giá trị gia tăng – Định nghĩa: Là dịch vụ cung cấp thêm tính năng xử lý, lưu trữ và truy xuất…"
+      ]
+    },
+    {
+      "id": "Q012",
+      "difficulty": "medium",
+      "category": "quyền và nghĩa vụ doanh nghiệp",
+      "reference": "Khoản 1 Điều 22",
+      "question": "Trong những trường hợp nào doanh nghiệp viễn thông được từ chối giao kết hợp đồng với người sử dụng dịch vụ?",
+      "ground_truth": "Doanh nghiệp viễn thông, đại lý dịch vụ viễn thông được từ chối giao kết hợp đồng trong 4 trường hợp: (1) Người sử dụng dịch vụ đã từng vi phạm hợp đồng cung cấp và sử dụng dịch vụ viễn thông đã giao kết với doanh nghiệp; (2) Việc cung cấp dịch vụ là không khả thi về kinh tế, kỹ thuật; (3) Người sử dụng dịch vụ đã bị từ chối cung cấp dịch vụ theo hình thức trả sau do trốn tránh nghĩa vụ thanh toán theo thỏa thuận văn bản giữa các doanh nghiệp; (4) Có yêu cầu bằng văn bản của cơ quan nhà nước có thẩm quyền.",
+      "model_answer": "Theo Khoản 1 Điều 22 Luật Viễn thông 2023, doanh nghiệp viễn thông và đại lý dịch vụ viễn thông không được từ chối giao kết hợp đồng với người sử dụng dịch vụ, trừ 4 trường hợp: (1) Người sử dụng dịch vụ đã từng vi phạm hợp đồng cung cấp và sử dụng dịch vụ viễn thông đã giao kết; (2) Việc cung cấp dịch vụ là không khả thi về kinh tế, kỹ thuật; (3) Người sử dụng dịch vụ đã bị doanh nghiệp có thỏa thuận văn bản với doanh nghiệp khác về việc từ chối cung cấp dịch vụ trả sau do trốn tránh nghĩa vụ thanh toán; (4) Có yêu cầu bằng văn bản của cơ quan nhà nước có thẩm quyền.",
+      "refined_query": "Theo quy định của Luật Viễn thông và Luật Bảo vệ quyền lợi người tiêu dùng, trong những trường hợp nào doanh nghiệp viễn thông được quyền từ chối giao kết hợp đồng dịch vụ với người sử dụng?",
+      "citations_matched": "1/1",
+      "citations_score": 1.0,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q013",
+      "difficulty": "medium",
+      "category": "bảo mật thông tin",
+      "reference": "Khoản 4 Điều 6",
+      "question": "Doanh nghiệp viễn thông có nghĩa vụ gì liên quan đến bảo mật thông tin người dùng?",
+      "ground_truth": "Doanh nghiệp viễn thông không được tiết lộ thông tin riêng liên quan đến người sử dụng dịch vụ, bao gồm thông tin thuê bao (tên, địa chỉ, số thuê bao, thông tin riêng khác khi giao kết hợp đồng) và thông tin về việc sử dụng dịch vụ (số gửi, số nhận, vị trí thiết bị đầu cuối, thời điểm giao dịch, thời lượng liên lạc, địa chỉ Internet). Ngoại trừ 4 trường hợp: người dùng đồng ý; các doanh nghiệp có thỏa thuận văn bản để phục vụ tính cước, lập hóa đơn; người dùng trốn tránh nghĩa vụ thanh toán; có yêu cầu của cơ quan nhà nước có thẩm quyền.",
+      "model_answer": "Doanh nghiệp viễn thông không được tiết lộ thông tin riêng của người sử dụng dịch vụ viễn thông, bao gồm thông tin thuê bao (tên, địa chỉ, số thuê bao, thông tin riêng khác khi giao kết hợp đồng) và thông tin về việc sử dụng dịch vụ (số thuê bao gửi/nhận, vị trí thiết bị đầu cuối, thời điểm giao dịch, thời lượng liên lạc, địa chỉ Internet). Nghĩa vụ bảo mật không áp dụng trong 4 trường hợp: người dùng đồng ý cung cấp thông tin; các doanh nghiệp có thỏa thuận văn bản về trao đổi thông tin để tính giá, lập hóa đơn; thuê bao trốn tránh nghĩa vụ thanh toán; có yêu cầu của cơ quan nhà nước có thẩm quyền. Ngoài ra, doanh nghiệp còn có trách nhiệm bảo vệ bí mật nhà nước và mã hóa thông tin mật khi truyền qua mạng.",
+      "refined_query": "Doanh nghiệp viễn thông có nghĩa vụ gì về bảo mật thông tin người dùng theo Luật Viễn thông và Luật An ninh mạng, bao gồm trách nhiệm kỹ thuật, báo cáo sự cố và phối hợp với cơ quan nhà nước?",
+      "citations_matched": "2/2",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.67,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Nghĩa vụ bảo vệ bí mật nhà nước: Tổ chức, cá nhân tham gia hoạt động viễn thông có trách nhiệm bảo vệ bí mật nhà nước...",
+        "[?] Đặc biệt, khi gửi, truyền hoặc lưu giữ thông tin thuộc danh mục bí mật nhà nước trên mạng viễn thông, doanh nghiệp có trách nhiệm mã hóa thông tin..."
+      ]
+    },
+    {
+      "id": "Q014",
+      "difficulty": "medium",
+      "category": "ngừng kinh doanh",
+      "reference": "Điều 23",
+      "question": "Điều kiện để doanh nghiệp viễn thông ngừng kinh doanh một phần hoặc toàn bộ dịch vụ là gì?",
+      "ground_truth": "Doanh nghiệp viễn thông thông thường chỉ được ngừng kinh doanh nếu: (1) Có phương án bảo đảm quyền, lợi ích hợp pháp của người sử dụng dịch vụ theo hợp đồng đã giao kết và của các bên liên quan; (2) Đã thông báo cho Bộ Thông tin và Truyền thông. Riêng với doanh nghiệp nắm giữ phương tiện thiết yếu, doanh nghiệp thống lĩnh thị trường hoặc cung cấp dịch vụ viễn thông công ích, phải đáp ứng thêm các điều kiện nặng hơn và phải được Bộ Thông tin và Truyền thông chấp thuận bằng văn bản.",
+      "model_answer": "Theo Điều 23 Luật Viễn thông 2023, điều kiện ngừng kinh doanh chia thành hai nhóm: (1) Doanh nghiệp nói chung: phải có phương án bảo đảm quyền, lợi ích hợp pháp của người sử dụng dịch vụ và đã thông báo cho Bộ TT&TT; (2) Doanh nghiệp nắm giữ phương tiện thiết yếu, doanh nghiệp thống lĩnh thị trường hoặc cung cấp dịch vụ công ích: phải đáp ứng điều kiện nặng hơn, cung cấp dịch vụ thay thế hoặc bồi thường, và phải được Bộ TT&TT chấp thuận bằng văn bản. Trường hợp ngừng theo yêu cầu của cơ quan nhà nước do vi phạm pháp luật: phải có phương án bảo vệ người dùng, phương án khắc phục vi phạm và báo cáo Bộ TT&TT bằng văn bản.",
+      "refined_query": "Theo quy định của Luật Viễn thông và Luật Dịch vụ Viễn thông, doanh nghiệp viễn thông cần đáp ứng những điều kiện gì để được cơ quan nhà nước cho phép ngừng kinh doanh một phần hoặc toàn bộ dịch vụ viễn thông?",
+      "citations_matched": "1/1",
+      "citations_score": 1.0,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q015",
+      "difficulty": "medium",
+      "category": "quyền và nghĩa vụ thuê bao",
+      "reference": "Khoản 4 Điều 15",
+      "question": "Thuê bao viễn thông có nghĩa vụ gì khi giao kết hợp đồng cung cấp dịch vụ?",
+      "ground_truth": "Thuê bao viễn thông có các nghĩa vụ sau: (1) Thanh toán đầy đủ, đúng hạn tiền dịch vụ; (2) Bồi thường thiệt hại trực tiếp do lỗi của mình; (3) Chịu trách nhiệm về nội dung thông tin mình gửi trên mạng; (4) Không dùng cơ sở hạ tầng của doanh nghiệp để kinh doanh dịch vụ viễn thông; (5) Thực hiện quy định quản lý tài nguyên viễn thông; (6) Cung cấp đầy đủ, chính xác thông tin cá nhân khi giao kết hợp đồng; (7) Không dùng thông tin trên giấy tờ của mình để giao kết hợp đồng cho người khác (trừ trường hợp được phép); (8) Chịu trách nhiệm pháp lý về việc sử dụng số thuê bao đã giao kết; (9) Bảo vệ mật khẩu, khóa mật mã và thiết bị đầu cuối.",
+      "model_answer": "Theo Điều 15 Luật Viễn thông 2023, thuê bao viễn thông có các nghĩa vụ: (1) Cung cấp đầy đủ, chính xác thông tin khi giao kết hợp đồng; (2) Không dùng thông tin giấy tờ tùy thân để giao kết hợp đồng cho người khác (trừ trường hợp được phép); (3) Thực hiện quy định về quản lý tài nguyên viễn thông và tiêu chuẩn kỹ thuật; (4) Bảo vệ mật khẩu, khóa mật mã và thiết bị đầu cuối; (5) Thanh toán đầy đủ, đúng hạn tiền sử dụng dịch vụ; (6) Bồi thường thiệt hại trực tiếp do lỗi của mình gây ra; (7) Chịu trách nhiệm pháp lý trong việc sử dụng số thuê bao đã giao kết.",
+      "refined_query": "Theo Luật Viễn thông và các văn bản hướng dẫn, thuê bao viễn thông có những nghĩa vụ gì khi giao kết và thực hiện hợp đồng cung cấp dịch vụ?",
+      "citations_matched": "3/3",
+      "citations_score": 1.0,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q016",
+      "difficulty": "medium",
+      "category": "định nghĩa",
+      "reference": "Khoản 25 Điều 3, Điều 23",
+      "question": "Phương tiện thiết yếu trong viễn thông được hiểu như thế nào và tại sao nó quan trọng?",
+      "ground_truth": "Phương tiện thiết yếu là bộ phận quan trọng của cơ sở hạ tầng viễn thông do một hoặc một số doanh nghiệp sở hữu hoặc sở hữu phần lớn trên thị trường viễn thông, và việc thiết lập mới bộ phận đó để thay thế là không khả thi về kinh tế, kỹ thuật. Đây là khái niệm quan trọng vì doanh nghiệp nắm giữ phương tiện thiết yếu bị áp đặt nghĩa vụ nặng hơn khi ngừng kinh doanh (phải được Bộ TT&TT chấp thuận bằng văn bản), nhằm bảo vệ thị trường viễn thông và quyền lợi người dùng.",
+      "model_answer": "Theo Khoản 25 Điều 3 Luật Viễn thông 2023, phương tiện thiết yếu là bộ phận quan trọng của cơ sở hạ tầng viễn thông do một hoặc một số doanh nghiệp viễn thông sở hữu hoặc sở hữu phần lớn trên thị trường viễn thông, và việc thiết lập mới bộ phận đó để thay thế là không khả thi về kinh tế, kỹ thuật. Tầm quan trọng: các chủ sở hữu phương tiện thiết yếu có trách nhiệm bảo đảm an toàn hạ tầng viễn thông, và khi ngừng kinh doanh phải đáp ứng điều kiện nặng hơn, phải được Bộ TT&TT chấp thuận bằng văn bản, nhằm bảo vệ quyền lợi người dùng và ổn định thị trường.",
+      "refined_query": "Theo quy định của Luật Viễn thông và Luật An ninh mạng, 'phương tiện thiết yếu trong viễn thông' được hiểu thế nào? Tại sao các phương tiện này lại có vai trò then chốt trong đảm bảo an ninh quốc gia và quyền tiếp cận thông tin?",
+      "citations_matched": "1/3",
+      "citations_score": 0.33,
+      "faithfulness_score": 0.67,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Bảo đảm an toàn thông tin và an ninh mạng: Các chủ sở hữu phương tiện thiết yếu có trách nhiệm bảo đảm an toàn cơ sở hạ tầng viễn thông..."
+      ]
+    },
+    {
+      "id": "Q017",
+      "difficulty": "medium",
+      "category": "quản lý giá",
+      "reference": "Điều 57",
+      "question": "Nguyên tắc quản lý và điều tiết giá dịch vụ viễn thông gồm những nguyên tắc nào?",
+      "ground_truth": "Có 8 nguyên tắc quản lý giá dịch vụ viễn thông: (1) Bảo đảm bù đắp chi phí sản xuất, kinh doanh và khả năng chi trả của người dùng; (2) Hài hòa lợi ích Nhà nước, doanh nghiệp và người dùng; (3) Rà soát các yếu tố hình thành giá để điều chỉnh khi cần; (4) Tôn trọng quyền tự định giá và cạnh tranh về giá của doanh nghiệp; (5) Phù hợp với điều ước quốc tế; (6) Bảo đảm môi trường cạnh tranh lành mạnh; (7) Bình đẳng, không phân biệt trong quản lý giá; (8) Không lấy lợi nhuận từ dịch vụ này để hỗ trợ kinh doanh dịch vụ khác của chính doanh nghiệp đó.",
+      "model_answer": "Dữ liệu về câu hỏi này không xuất hiện đầy đủ trong file model output được cung cấp.",
+      "refined_query": "N/A",
+      "citations_matched": "N/A",
+      "citations_score": null,
+      "faithfulness_score": null,
+      "faithfulness_label": "N/A",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q018",
+      "difficulty": "medium",
+      "category": "định nghĩa",
+      "reference": "Khoản 10, 11 Điều 3",
+      "question": "Dịch vụ điện toán đám mây được định nghĩa như thế nào trong Luật Viễn thông 2023?",
+      "ground_truth": "Dịch vụ điện toán đám mây là dịch vụ viễn thông cung cấp tính năng xử lý, lưu trữ và truy xuất thông tin cho người sử dụng qua mạng viễn thông thông qua điện toán đám mây. Điện toán đám mây là mô hình cho phép sử dụng linh hoạt, có thể điều chỉnh, quản trị theo nhu cầu các tài nguyên điện toán dùng chung gồm mạng, máy chủ, thiết bị lưu trữ, ứng dụng.",
+      "model_answer": "Dữ liệu về câu hỏi này không xuất hiện đầy đủ trong file model output được cung cấp.",
+      "refined_query": "N/A",
+      "citations_matched": "N/A",
+      "citations_score": null,
+      "faithfulness_score": null,
+      "faithfulness_label": "N/A",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q019",
+      "difficulty": "medium",
+      "category": "hóa đơn thanh toán",
+      "reference": "Khoản 3 Điều 60",
+      "question": "Hóa đơn thanh toán tiền sử dụng dịch vụ viễn thông phải thể hiện những nội dung gì?",
+      "ground_truth": "Hóa đơn thanh toán tiền sử dụng dịch vụ viễn thông phải thể hiện đầy đủ, chính xác, rõ ràng: (1) Đơn giá dịch vụ và số tiền phải thanh toán đối với từng loại dịch vụ viễn thông; (2) Tổng số tiền phải thanh toán; (3) Thuế giá trị gia tăng (nếu có).",
+      "model_answer": "Theo Khoản 3 Điều 60 Luật Viễn thông 2023, hóa đơn thanh toán tiền sử dụng dịch vụ viễn thông phải thể hiện đầy đủ, chính xác, rõ ràng: (1) Đơn giá dịch vụ và số tiền phải thanh toán đối với từng loại dịch vụ viễn thông cụ thể; (2) Tổng số tiền phải thanh toán; (3) Thuế giá trị gia tăng (nếu có). Ngoài ra, doanh nghiệp viễn thông còn có trách nhiệm lập hóa đơn chính xác, đầy đủ và khấu trừ chính xác số tiền người sử dụng phải trả (theo Khoản 1 và Khoản 2 Điều 60).",
+      "refined_query": "Hóa đơn thanh toán tiền sử dụng dịch vụ viễn thông phải thể hiện những nội dung gì?",
+      "citations_matched": "2/2",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.75,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Ngoài ra, doanh nghiệp viễn thông còn có trách nhiệm lập hóa đơn chính xác, đầy đủ và khấu trừ chính xác số tiền người sử dụng phải trả..."
+      ]
+    },
+    {
+      "id": "Q020",
+      "difficulty": "medium",
+      "category": "an ninh mạng",
+      "reference": "Khoản 6, 7 Điều 5",
+      "question": "Doanh nghiệp viễn thông có trách nhiệm gì khi có yêu cầu của cơ quan nhà nước liên quan đến an ninh mạng?",
+      "ground_truth": "Khi có yêu cầu của cơ quan nhà nước có thẩm quyền theo Luật An ninh mạng, doanh nghiệp viễn thông có trách nhiệm: (1) Cung cấp điểm truy nhập mạng viễn thông và các điều kiện kỹ thuật, nghiệp vụ cần thiết để cơ quan đó thực hiện nhiệm vụ kiểm soát và bảo đảm an ninh thông tin; (2) Ngừng khẩn cấp việc cung cấp dịch vụ viễn thông trong trường hợp có bạo loạn hoặc sử dụng dịch vụ viễn thông nhằm chống Nhà nước, xâm phạm an ninh quốc gia.",
+      "model_answer": "Doanh nghiệp viễn thông có các trách nhiệm khi có yêu cầu của cơ quan nhà nước: (1) Cung cấp điểm truy nhập mạng viễn thông và các điều kiện kỹ thuật, nghiệp vụ cần thiết để thực hiện nhiệm vụ kiểm soát và bảo đảm an ninh thông tin (Khoản 7 Điều 5); (2) Ngừng khẩn cấp cung cấp dịch vụ trong trường hợp có bạo loạn, sử dụng dịch vụ nhằm chống Nhà nước, xâm phạm an ninh quốc gia (Khoản 6 Điều 5); (3) Định danh địa chỉ IP và cung cấp thông tin định danh cho lực lượng chuyên trách an ninh mạng; (4) Ngăn chặn và gỡ bỏ nội dung vi phạm; (5) Phối hợp thiết lập hệ thống kết nối, đấu nối đường truyền kỹ thuật theo hướng dẫn của lực lượng an ninh mạng.",
+      "refined_query": "Doanh nghiệp viễn thông có nghĩa vụ gì khi cơ quan nhà nước yêu cầu cung cấp thông tin, dữ liệu hoặc hỗ trợ kỹ thuật theo quy định về an ninh mạng và bảo mật?",
+      "citations_matched": "2/5",
+      "citations_score": 0.4,
+      "faithfulness_score": 0.4,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Ngừng khẩn cấp việc cung cấp dịch vụ viễn thông – Hành vi: Doanh nghiệp viễn thông có trách nhiệm ngừng khẩn cấp...",
+        "[?] Thực hiện các biện pháp ngăn chặn và cung cấp thông tin định danh (Theo Luật An ninh mạng 2025)...",
+        "[?] Phối hợp thiết lập hệ thống kết nối và đấu nối đường truyền..."
+      ]
+    },
+    {
+      "id": "Q021",
+      "difficulty": "hard",
+      "category": "nghĩa vụ doanh nghiệp thống lĩnh",
+      "reference": "Điều 17",
+      "question": "Phân tích các nghĩa vụ bổ sung của doanh nghiệp viễn thông có vị trí thống lĩnh thị trường so với doanh nghiệp viễn thông thông thường.",
+      "ground_truth": "Ngoài các nghĩa vụ chung (khoản 2 và khoản 4 Điều 13), doanh nghiệp viễn thông có vị trí thống lĩnh thị trường hoặc nhóm doanh nghiệp thống lĩnh thị trường còn phải thực hiện 4 nghĩa vụ bổ sung: (1) Thực hiện hoạt động bán buôn viễn thông khi có yêu cầu từ doanh nghiệp viễn thông khác, bảo đảm giá và điều kiện công bằng, không phân biệt; (2) Hạch toán chi phí và xác định giá thành dịch vụ viễn thông mình cung cấp; (3) Không được cung cấp dịch vụ với giá thấp hơn giá thành, trừ trường hợp khuyến mại theo quy định pháp luật; (4) Xây dựng thỏa thuận mẫu khi thực hiện bán buôn viễn thông theo quy định của Bộ trưởng Bộ TT&TT.",
+      "model_answer": "Theo Khoản 3 Điều 17 Luật Viễn thông 2023, doanh nghiệp viễn thông có vị trí thống lĩnh thị trường phải tuân thủ 4 nghĩa vụ bổ sung: (1) Nghĩa vụ bán buôn khi có yêu cầu: phải thực hiện hoạt động bán buôn trong viễn thông khi có yêu cầu từ doanh nghiệp viễn thông khác, theo quy định tại Điều 16; (2) Nghĩa vụ hạch toán và xác định giá thành: phải thực hiện hạch toán chi phí và xác định giá thành đối với các dịch vụ mà doanh nghiệp cung cấp; (3) Nghĩa vụ về giá dịch vụ: không được cung cấp dịch vụ với mức giá thấp hơn giá thành, trừ trường hợp khuyến mại theo quy định; (4) Nghĩa vụ xây dựng thỏa thuận mẫu: phải xây dựng thỏa thuận mẫu khi thực hiện hoạt động bán buôn trong viễn thông, theo quy định của Bộ trưởng Bộ TT&TT.",
+      "refined_query": "Phân tích các nghĩa vụ bổ sung theo Luật Viễn thông và Luật Cạnh tranh đối với doanh nghiệp viễn thông có vị trí thống lĩnh thị trường so với doanh nghiệp viễn thông thông thường.",
+      "citations_matched": "1/3",
+      "citations_score": 0.33,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q022",
+      "difficulty": "hard",
+      "category": "dịch vụ viễn thông xuyên biên giới",
+      "reference": "Điều 21",
+      "question": "Phân tích nghĩa vụ của tổ chức nước ngoài cung cấp dịch vụ viễn thông qua biên giới đến người dùng tại Việt Nam.",
+      "ground_truth": "Tổ chức nước ngoài cung cấp dịch vụ viễn thông qua biên giới đến người dùng tại Việt Nam phải: (1) Tuân thủ pháp luật Việt Nam và điều ước quốc tế mà Việt Nam là thành viên; (2) Đối với dịch vụ theo cam kết điều ước quốc tế, ngoài các nghĩa vụ đã cam kết, còn phải bảo đảm yêu cầu về quốc phòng, an ninh, chính sách công cộng; (3) Phải tuân theo các quy định tại khoản 6 Điều 5 (ngừng cung cấp khẩn cấp theo yêu cầu), Điều 6 (bảo đảm bí mật thông tin), điểm b và d khoản 2 Điều 13 (báo cáo, thực hiện ngăn chặn theo yêu cầu); (4) Tuân theo quy định của pháp luật về an toàn thông tin mạng, an ninh mạng.",
+      "model_answer": "Theo Khoản 3 Điều 21 Luật Viễn thông 2023, khi doanh nghiệp viễn thông Việt Nam tham gia thỏa thuận thương mại với tổ chức nước ngoài cung cấp dịch vụ qua biên giới, nghĩa vụ bao gồm: (1) Có phương án kỹ thuật bảo đảm an ninh thông tin; (2) Thực hiện ngăn chặn khẩn cấp đối với dịch vụ viễn thông khi có yêu cầu; (3) Ngừng cung cấp dịch vụ ngay lập tức khi nhận được yêu cầu từ cơ quan nhà nước có thẩm quyền của Việt Nam. Chính phủ sẽ ban hành các văn bản quy định chi tiết về nội dung của Khoản 2 và Khoản 3 Điều 21.",
+      "refined_query": "Phân tích nghĩa vụ pháp lý của tổ chức nước ngoài cung cấp dịch vụ viễn thông qua biên giới đối với người dùng tại Việt Nam theo Luật Viễn thông và Luật Điện tử thương mại.",
+      "citations_matched": "4/4",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.88,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Biện pháp khắc phục và Quy định chi tiết: Chính phủ sẽ ban hành các văn bản quy định chi tiết về nội dung của Khoản 2 và Khoản 3 Điều 21..."
+      ]
+    },
+    {
+      "id": "Q023",
+      "difficulty": "hard",
+      "category": "sở hữu vốn",
+      "reference": "Điều 11",
+      "question": "Luật Viễn thông 2023 quy định như thế nào về việc sở hữu vốn trong doanh nghiệp cung cấp dịch vụ có hạ tầng mạng, và mục tiêu của các quy định này là gì?",
+      "ground_truth": "Về sở hữu vốn nhà nước: Nhà nước duy trì phần vốn góp/cổ phần để bảo đảm chi phối hoạt động của các doanh nghiệp cung cấp dịch vụ có hạ tầng mạng có tầm quan trọng đặc biệt đối với toàn bộ cơ sở hạ tầng viễn thông quốc gia và ảnh hưởng trực tiếp đến phát triển kinh tế - xã hội, bảo đảm quốc phòng, an ninh. Danh mục các doanh nghiệp này do Thủ tướng Chính phủ ban hành. Về sở hữu tư nhân: Chính phủ quy định tỷ lệ vốn góp/cổ phần tối đa mà một tổ chức/cá nhân được nắm giữ trong 2 hoặc nhiều doanh nghiệp viễn thông khác nhau cùng kinh doanh trên một thị trường dịch vụ viễn thông, nhằm bảo đảm cạnh tranh lành mạnh.",
+      "model_answer": "Theo Điều 11 Luật Viễn thông 2023: (1) Nhà nước duy trì phần vốn góp, cổ phần để bảo đảm chi phối hoạt động của doanh nghiệp cung cấp dịch vụ có hạ tầng mạng có tầm quan trọng đặc biệt đối với cơ sở hạ tầng viễn thông quốc gia và ảnh hưởng đến phát triển kinh tế - xã hội, quốc phòng, an ninh. (2) Thủ tướng Chính phủ ban hành danh mục các doanh nghiệp thuộc đối tượng này. (3) Chính phủ quy định tỷ lệ vốn góp tối đa mà một tổ chức, cá nhân được nắm giữ trong 2 hoặc nhiều doanh nghiệp viễn thông cùng kinh doanh trên một thị trường. Mục tiêu: đảm bảo sự chi phối của Nhà nước đối với hạ tầng viễn thông thiết yếu, bảo đảm quốc phòng an ninh, và kiểm soát sở hữu chéo để duy trì cạnh tranh lành mạnh.",
+      "refined_query": "Luật Viễn thông 2023 quy định cụ thể về tỷ lệ sở hữu vốn nước ngoài tối đa đối với doanh nghiệp cung cấp dịch vụ viễn thông có hạ tầng mạng như thế nào, đồng thời mục tiêu điều tiết của các quy định này nhằm đảm bảo an ninh quốc gia và phát triển bền vững ngành viễn thông ra sao?",
+      "citations_matched": "4/4",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.67,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Mục tiêu chính sách đằng sau các quy định: Mục tiêu chính của các quy định này là bảo đảm sự chi phối của Nhà nước..."
+      ]
+    },
+    {
+      "id": "Q024",
+      "difficulty": "hard",
+      "category": "công trình viễn thông",
+      "reference": "Khoản 6, 7 Điều 65",
+      "question": "Khi xây dựng nhà chung cư hoặc công trình công cộng, chủ đầu tư có các nghĩa vụ gì liên quan đến hạ tầng viễn thông?",
+      "ground_truth": "Chủ đầu tư xây dựng nhà chung cư, công trình công cộng, khu chức năng, cụm công nghiệp có các nghĩa vụ bắt buộc sau: (1) Thiết kế xây dựng hạ tầng kỹ thuật viễn thông thụ động phù hợp quy chuẩn kỹ thuật, bảo đảm đồng bộ, thống nhất; (2) Thiết kế, lắp đặt hoặc tổ chức lắp đặt mạng cáp viễn thông trong nhà chung cư, công trình công cộng khi xây dựng; (3) Bố trí mặt bằng cho lắp đặt cột ăng ten trên mái tòa nhà, hệ thống thu phát sóng di động trong nhà nếu khả thi về kỹ thuật; (4) Bố trí mặt bằng cho xây dựng hạ tầng kỹ thuật viễn thông thụ động, lắp đặt thiết bị viễn thông trong khu chức năng, cụm công nghiệp. Đặc biệt, hạ tầng kỹ thuật viễn thông thụ động là nội dung phải có khi thiết kế cơ sở.",
+      "model_answer": "Theo Khoản 6 Điều 65 Luật Viễn thông 2023, chủ đầu tư xây dựng nhà chung cư, công trình công cộng, khu chức năng hoặc cụm công nghiệp có 4 nghĩa vụ: (1) Thiết kế xây dựng hạ tầng kỹ thuật viễn thông thụ động phù hợp với quy chuẩn kỹ thuật, bảo đảm tính thống nhất, đồng bộ; (2) Thiết kế, lắp đặt hoặc tổ chức lắp đặt mạng cáp viễn thông trong nhà chung cư, công trình công cộng khi xây dựng; (3) Nếu khả thi về kỹ thuật, bố trí mặt bằng cho lắp đặt cột ăng ten trên mái tòa nhà và hệ thống thu phát sóng di động; (4) Bố trí mặt bằng cho xây dựng hạ tầng viễn thông thụ động và lắp đặt thiết bị viễn thông trong khu chức năng, cụm công nghiệp. Ngoài ra, theo Khoản 9 Điều 65, trước khi xây dựng hạ tầng kỹ thuật viễn thông thụ động, tổ chức, cá nhân phải thông báo cho cơ quan chuyên môn về viễn thông thuộc UBND cấp tỉnh.",
+      "refined_query": "Chủ đầu tư xây dựng nhà chung cư hay công trình công cộng có nghĩa vụ gì về hạ tầng viễn thông theo Luật Viễn thông và Luật Xây dựng, bao gồm quy định về thiết kế, thi công, nghiệm thu và bàn giao hệ thống?",
+      "citations_matched": "2/2",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.83,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Ngoài ra, theo Khoản 9 Điều 65 Luật Viễn thông 2023, trước khi thực hiện việc xây dựng hạ tầng kỹ thuật viễn thông thụ động..."
+      ]
+    },
+    {
+      "id": "Q025",
+      "difficulty": "hard",
+      "category": "chuyển tiếp giấy phép",
+      "reference": "Điều 73",
+      "question": "Phân tích các trường hợp chuyển tiếp về giấy phép viễn thông trong Luật Viễn thông 2023 và ý nghĩa thực tiễn của chúng.",
+      "ground_truth": "Luật Viễn thông 2023 quy định 4 tình huống chuyển tiếp: (1) Giấy phép nghiệp vụ viễn thông cấp theo luật cũ (41/2009) tiếp tục được sử dụng đến hết thời hạn – bảo đảm tính liên tục hoạt động; (2) Doanh nghiệp tiếp tục kinh doanh theo thời hạn giấy phép kinh doanh dịch vụ cũ cho đến khi hết hạn – tránh gián đoạn kinh doanh; (3) Trường hợp đặc thù: nếu giấy phép cung cấp dịch vụ ngắn hơn giấy phép thiết lập mạng công cộng thì giấy phép cung cấp dịch vụ được thực hiện theo thời hạn của giấy phép thiết lập mạng – tránh mâu thuẫn kép; (4) Tổ chức nộp hồ sơ trước khi luật có hiệu lực mà chưa được cấp phép tính đến 01/7/2024 thì được xem xét theo luật cũ.",
+      "model_answer": "Theo Điều 73 Luật Viễn thông 2023, có 4 trường hợp chuyển tiếp: (1) Giấy phép nghiệp vụ viễn thông cũ tiếp tục có hiệu lực đến hết thời hạn ghi trên giấy phép; (2) Doanh nghiệp tiếp tục kinh doanh theo thời hạn giấy phép dịch vụ cũ cho đến khi hết hạn; (3) Nếu thời hạn giấy phép cung cấp dịch vụ ngắn hơn giấy phép thiết lập mạng viễn thông công cộng, giấy phép dịch vụ được kéo dài theo thời hạn của giấy phép mạng; (4) Tổ chức nộp hồ sơ trước khi Luật có hiệu lực mà chưa được cấp phép tính đến 01/7/2024 thì được xem xét theo luật cũ. Ý nghĩa: đảm bảo tính liên tục kinh doanh, bảo vệ quyền lợi doanh nghiệp, giải quyết chồng chéo thời hạn giấy phép, và bảo vệ doanh nghiệp đang trong quá trình xin cấp phép.",
+      "refined_query": "Phân tích các trường hợp chuyển tiếp giấy phép viễn thông theo Điều 108 Luật Viễn thông 2023, quy trình xin cấp lại và ý nghĩa thực tiễn đối với doanh nghiệp đang hoạt động.",
+      "citations_matched": "4/4",
+      "citations_score": 1.0,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q026",
+      "difficulty": "hard",
+      "category": "bán buôn viễn thông",
+      "reference": "Điều 16, Điều 17",
+      "question": "Hoạt động bán buôn trong viễn thông là gì và doanh nghiệp thực hiện phải tuân thủ những nguyên tắc nào?",
+      "ground_truth": "Hoạt động bán buôn trong viễn thông là việc doanh nghiệp viễn thông cho doanh nghiệp viễn thông khác thuê mạng viễn thông hoặc mua lưu lượng, dịch vụ viễn thông để phục vụ cung cấp dịch vụ. Doanh nghiệp thực hiện phải tuân thủ 2 nguyên tắc: (1) Bảo đảm cung cấp dịch vụ với giá và các điều kiện liên quan công bằng, hợp lý, không phân biệt đối xử; (2) Minh bạch thông tin về giá, tiêu chuẩn, quy chuẩn kỹ thuật viễn thông, chất lượng mạng và dịch vụ viễn thông.",
+      "model_answer": "Theo Khoản 1 Điều 16 Luật Viễn thông 2023, hoạt động bán buôn trong viễn thông là việc doanh nghiệp viễn thông cho doanh nghiệp viễn thông khác thuê mạng viễn thông hoặc mua lưu lượng, dịch vụ viễn thông của mình để phục vụ cung cấp dịch vụ viễn thông. Doanh nghiệp phải tuân thủ 2 nguyên tắc theo Khoản 2 Điều 16: (1) Bảo đảm cung cấp dịch vụ với giá và các điều kiện liên quan công bằng, hợp lý, không phân biệt đối xử; (2) Minh bạch thông tin về giá, tiêu chuẩn, quy chuẩn kỹ thuật viễn thông, chất lượng mạng và chất lượng dịch vụ viễn thông. Ngoài ra, các quy định chi tiết do Bộ trưởng Bộ TT&TT ban hành (Khoản 3 Điều 16).",
+      "refined_query": "Theo Luật Viễn thông, hoạt động bán buôn viễn thông là gì? Doanh nghiệp thực hiện hoạt động này phải tuân thủ những nguyên tắc và điều kiện gì về cấp phép, an ninh mạng và bảo vệ dữ liệu?",
+      "citations_matched": "3/3",
+      "citations_score": 1.0,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q027",
+      "difficulty": "hard",
+      "category": "an toàn hạ tầng",
+      "reference": "Điều 5",
+      "question": "Phân tích trách nhiệm của các bên trong việc bảo đảm an toàn cơ sở hạ tầng viễn thông theo Điều 5 của Luật Viễn thông 2023.",
+      "ground_truth": "Luật quy định trách nhiệm nhiều tầng: (1) Mọi cơ quan, tổ chức, cá nhân: có trách nhiệm bảo đảm an toàn và phải thông báo kịp thời cho UBND cấp xã hoặc công an gần nhất khi phát hiện hành vi cản trở, phá hoại, xâm phạm cơ sở hạ tầng viễn thông; (2) Doanh nghiệp viễn thông, tổ chức thiết lập mạng, tổ chức/cá nhân sở hữu hạ tầng kỹ thuật thụ động, đại lý và người dùng: có trách nhiệm bảo vệ mạng viễn thông và thiết bị đầu cuối; (3) Tổ chức, cá nhân: không được gây nhiễu có hại, làm hư hỏng thiết bị, công trình, mạng viễn thông của người khác; (4) Doanh nghiệp viễn thông đặc biệt: phải ngừng cung cấp dịch vụ khẩn cấp khi có bạo loạn hoặc theo yêu cầu an ninh quốc gia; cung cấp điểm truy nhập mạng và điều kiện kỹ thuật cho cơ quan nhà nước thực hiện kiểm soát an ninh; (5) Bộ Quốc phòng, Bộ Công an, UBND các cấp: trong phạm vi quyền hạn, có trách nhiệm bảo vệ an toàn và xử lý vi phạm.",
+      "model_answer": "Theo Điều 5 Luật Viễn thông 2023, trách nhiệm pháp lý được phân bổ như sau: (1) Mọi cơ quan, tổ chức, cá nhân: bảo đảm an toàn và thông báo kịp thời cho UBND cấp xã hoặc công an gần nhất khi phát hiện hành vi phá hoại; (2) Doanh nghiệp viễn thông, tổ chức thiết lập mạng, sở hữu hạ tầng thụ động, đại lý và người dùng: bảo vệ mạng viễn thông và thiết bị đầu cuối; không được gây nhiễu có hại, làm hư hỏng thiết bị; (3) Tổ chức, cá nhân: chịu sự quản lý, thanh tra, kiểm tra của cơ quan nhà nước; (4) Bộ Quốc phòng, Bộ Công an, UBND các cấp: bảo vệ an toàn và xử lý vi phạm; (5) Doanh nghiệp viễn thông (đặc biệt): ngừng cung cấp dịch vụ khẩn cấp khi có bạo loạn/xâm phạm an ninh quốc gia; cung cấp điểm truy nhập mạng và điều kiện kỹ thuật cho cơ quan nhà nước.",
+      "refined_query": "Phân tích trách nhiệm của các bên theo Điều 5 Luật Viễn thông 2023 về việc bảo đảm an toàn cơ sở hạ tầng viễn thông, bao gồm nghĩa vụ cụ thể và biện pháp thực thi.",
+      "citations_matched": "9/9",
+      "citations_score": 1.0,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q028",
+      "difficulty": "hard",
+      "category": "giữ số thuê bao",
+      "reference": "Điểm h Khoản 2, Khoản 4 Điều 13",
+      "question": "Luật Viễn thông 2023 quy định gì về việc thuê bao viễn thông được giữ nguyên số thuê bao khi đổi nhà mạng? Đây là nghĩa vụ của ai?",
+      "ground_truth": "Theo Luật Viễn thông 2023, doanh nghiệp cung cấp dịch vụ không có hạ tầng mạng có nghĩa vụ bảo đảm cho thuê bao viễn thông được giữ nguyên số thuê bao viễn thông khi thay đổi doanh nghiệp cung cấp dịch vụ viễn thông trong cùng một loại hình dịch vụ viễn thông (điểm h, khoản 2, Điều 13). Đây là nghĩa vụ của doanh nghiệp viễn thông. Quy định này bảo vệ quyền lợi người dùng, tránh hiện tượng người dùng bị giam vào một nhà mạng vì sợ mất số điện thoại quen thuộc.",
+      "model_answer": "Theo Khoản 2, điểm h Điều 13 Luật Viễn thông 2023, doanh nghiệp viễn thông cung cấp dịch vụ có nghĩa vụ bảo đảm cho thuê bao viễn thông được giữ nguyên số thuê bao viễn thông khi thay đổi doanh nghiệp cung cấp dịch vụ trong cùng một loại hình dịch vụ. Đây là nghĩa vụ của cả doanh nghiệp cũ và doanh nghiệp mới, cần phải phối hợp để thực hiện. Quy định chỉ áp dụng khi thuê bao chuyển đổi trong cùng loại hình dịch vụ. Chính phủ quy định chi tiết điểm này.",
+      "refined_query": "Theo Luật Viễn thông 2023, quy định cụ thể nào về quyền giữ nguyên số thuê bao khi chuyển đổi nhà mạng? Ai là chủ thể có nghĩa vụ thực hiện thủ tục này và thời hạn thực hiện là bao nhiêu?",
+      "citations_matched": "4/4",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.2,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Cụ thể là doanh nghiệp đang cung cấp dịch vụ cho thuê bao trước khi chuyển đổi (doanh nghiệp cũ) và doanh nghiệp mới nhận chuyển đổi (doanh nghiệp mới). Cả hai bên đều phải phối hợp để thực hiện việc giữ nguyên số thuê bao.",
+        "[?] Điều này tạo cơ sở pháp lý cho việc chuyển đổi nhà mạng (thường diễn ra thông qua cơ chế bán lại dịch vụ)."
+      ]
+    },
+    {
+      "id": "Q029",
+      "difficulty": "hard",
+      "category": "phân loại dịch vụ",
+      "reference": "Khoản 8, 12 Điều 3; Khoản 2 Điều 20; Điều 28",
+      "question": "Phân tích sự khác biệt giữa dịch vụ viễn thông cơ bản trên Internet và dịch vụ ứng dụng viễn thông. Tại sao sự phân biệt này quan trọng về mặt pháp lý?",
+      "ground_truth": "Dịch vụ viễn thông cơ bản trên Internet là dịch vụ viễn thông cung cấp tính năng chính là gửi, truyền, nhận thông tin giữa hai người hoặc một nhóm người sử dụng trên Internet. Dịch vụ ứng dụng viễn thông là dịch vụ sử dụng mạng viễn thông để cung cấp ứng dụng trong các lĩnh vực công nghệ thông tin, phát thanh, truyền hình, thương mại, tài chính, ngân hàng, văn hóa, y tế, giáo dục và lĩnh vực khác. Sự phân biệt quan trọng vì: (1) Dịch vụ viễn thông cơ bản trên Internet được xếp vào nhóm dịch vụ viễn thông phải đáp ứng điều kiện kinh doanh và tuân thủ quy định về giấy phép/đăng ký – có hiệu lực từ 01/01/2025; (2) Dịch vụ ứng dụng viễn thông chịu điều chỉnh của pháp luật chuyên ngành tương ứng; (3) Việc phân loại đúng xác định nghĩa vụ cấp phép, đăng ký và tuân thủ quy chuẩn kỹ thuật.",
+      "model_answer": "Dịch vụ viễn thông cơ bản trên Internet (Khoản 8 Điều 3): là dịch vụ cung cấp tính năng chính là gửi, truyền, nhận thông tin giữa hai người hoặc một nhóm người sử dụng dịch vụ viễn thông trên Internet – bản chất là hạ tầng truyền tải. Dịch vụ ứng dụng viễn thông (Khoản 14 Điều 3): là dịch vụ cung cấp trong các lĩnh vực như công nghệ thông tin, phát thanh, truyền hình, thương mại, tài chính, y tế, giáo dục – bản chất là giá trị gia tăng. Ý nghĩa pháp lý: (1) Giấy phép và đăng ký: dịch vụ cơ bản chịu quản lý chặt về cấp phép kinh doanh; dịch vụ ứng dụng có quy trình khác tùy lĩnh vực; (2) An ninh thông tin: nhà cung cấp cơ bản bảo vệ đường truyền; ứng dụng có trách nhiệm sâu hơn về bảo vệ dữ liệu chuyên ngành; (3) Quy hoạch đầu tư: hạ tầng cơ bản được quy hoạch quốc gia; ứng dụng linh hoạt theo thị trường.",
+      "refined_query": "Phân tích sự khác biệt pháp lý giữa dịch vụ viễn thông cơ bản trên Internet và dịch vụ ứng dụng viễn thông theo quy định hiện hành, làm rõ ý nghĩa của việc phân loại này đối với quản lý ngành và nghĩa vụ pháp lý của doanh nghiệp.",
+      "citations_matched": "2/2",
+      "citations_score": 1.0,
+      "faithfulness_score": 1.0,
+      "faithfulness_label": "✓",
+      "faithfulness_detail": []
+    },
+    {
+      "id": "Q030",
+      "difficulty": "hard",
+      "category": "bồi thường thiệt hại",
+      "reference": "Điều 62",
+      "question": "Trong trường hợp doanh nghiệp viễn thông cung cấp dịch vụ không đúng chất lượng hoặc thời gian cam kết, Luật quy định trách nhiệm bồi thường như thế nào? Có giới hạn nào đối với nghĩa vụ bồi thường không?",
+      "ground_truth": "Luật Viễn thông 2023 quy định trách nhiệm bồi thường như sau: (1) Doanh nghiệp cung cấp dịch vụ không đúng thời gian và chất lượng theo hợp đồng phải hoàn trả một phần hoặc toàn bộ tiền sử dụng dịch vụ đã thu. (2) Giới hạn quan trọng: Doanh nghiệp viễn thông không phải bồi thường thiệt hại gián tiếp hoặc nguồn lợi không thu được do cung cấp dịch vụ không bảo đảm thời gian và chất lượng. (3) Nguyên tắc chung: các bên có trách nhiệm bồi thường thiệt hại vật chất trực tiếp do lỗi của mình gây ra, trừ trường hợp bất khả kháng.",
+      "model_answer": "Theo Điều 62 Luật Viễn thông 2023: (1) Trách nhiệm bồi thường: khi cung cấp dịch vụ không đúng thời gian và chất lượng theo hợp đồng, doanh nghiệp phải hoàn trả một phần hoặc toàn bộ tiền sử dụng dịch vụ đã thu. (2) Giới hạn trách nhiệm: doanh nghiệp không phải bồi thường thiệt hại gián tiếp hoặc nguồn lợi không thu được do dịch vụ không đảm bảo thời gian và chất lượng. Doanh nghiệp chỉ phải hoàn tiền dịch vụ, không phải bồi thường tổn thất gián tiếp (như mất hợp đồng kinh doanh do mất liên lạc).",
+      "refined_query": "Theo Luật Viễn thông và các văn bản hướng dẫn, doanh nghiệp viễn thông phải bồi thường như thế nào khi cung cấp dịch vụ không đúng chất lượng hoặc thời gian cam kết? Có giới hạn trách nhiệm bồi thường tối đa nào đối với nghĩa vụ này không?",
+      "citations_matched": "2/2",
+      "citations_score": 1.0,
+      "faithfulness_score": 0.75,
+      "faithfulness_label": "⚠",
+      "faithfulness_detail": [
+        "[?] Hoàn trả tiền sử dụng dịch vụ viễn thông và bồi thường thiệt hại của Luật Viễn thông 2023: Khoản 1: Quy định nghĩa vụ hoàn trả tiền..."
+      ]
+    }
+  ]
+}

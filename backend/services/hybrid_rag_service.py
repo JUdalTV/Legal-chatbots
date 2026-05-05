@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any
 
 try:
     from dotenv import load_dotenv
@@ -22,9 +22,12 @@ except ImportError:
 from backend.graph_rag.graph_retriever import GraphRetriever
 from backend.graph_rag.neo4j_loader import Neo4jKG
 from backend.graph_rag.ontology import ALL_NODE_TYPES, RELATION_CATALOG
-from backend.vector_rag.intent import extract_article_number
+from backend.vector_rag.intent import classify_intent, extract_article_number
 from backend.vector_rag.pipeline import VectorRAGPipeline
+from backend.services.citation import annotate_answer, extract_citations
+from backend.services.faithfulness import check_faithfulness
 from backend.services.llm_client import LLMClient
+from backend.services.query_refiner import refine_query
 
 
 DEFAULT_QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
@@ -42,6 +45,10 @@ class HybridRAGResult:
     vector_results: list[dict]
     graph_article_ids: list[str]
     cypher_guide: str
+    refined: dict          # {original, intent, objective, refined}
+    citations: list[dict]  # extract_citations output
+    faithfulness: dict     # check_faithfulness output
+    annotated_answer: str  # answer + [✓]/[?] markers
 
 
 class HybridRAGService:
@@ -65,6 +72,9 @@ class HybridRAGService:
         device: str = "gpu",
         llm: LLMClient | None = None,
         min_rerank_score: float = 0.0,
+        enable_refine:       bool = True,
+        enable_faithfulness: bool = True,
+        enable_citations:    bool = True,
     ):
         self.vector = VectorRAGPipeline(
             qdrant_host=qdrant_host,
@@ -75,6 +85,9 @@ class HybridRAGService:
         self.kg = Neo4jKG(neo4j_uri, neo4j_user, neo4j_password)
         self.graph = GraphRetriever(self.kg)
         self.llm = llm or LLMClient()
+        self.enable_refine       = enable_refine
+        self.enable_faithfulness = enable_faithfulness
+        self.enable_citations    = enable_citations
 
     def close(self) -> None:
         self.kg.close()
@@ -89,16 +102,29 @@ class HybridRAGService:
         temperature: float = 0.2,
         max_tokens: int = 4096,
     ) -> HybridRAGResult:
+        # ── Step 1: tinh chỉnh query (intent-aware) ────────────────
+        intent = classify_intent(query)
+        if self.enable_refine:
+            refined_info = refine_query(query, intent=intent, llm=self.llm)
+        else:
+            refined_info = {
+                "original": query, "intent": intent,
+                "objective": "", "refined": query,
+            }
+        retrieval_query = refined_info["refined"]
+
+        # ── Step 2: retrieve (vector + graph seed) song song ──────
         with ThreadPoolExecutor(max_workers=2) as pool:
             vector_future = pool.submit(
                 self._run_vector,
-                query,
+                retrieval_query,
                 law_id=law_id,
                 top_k=top_k,
                 min_rerank_score=min_rerank_score,
             )
-            graph_future = pool.submit(self._run_graph_seed_search, query, law_id=law_id)
-
+            graph_future = pool.submit(
+                self._run_graph_seed_search, retrieval_query, law_id=law_id,
+            )
             vector_out = vector_future.result()
             graph_seed_ids = graph_future.result()
 
@@ -111,19 +137,36 @@ class HybridRAGService:
         ]
         graph_article_ids = _unique([*graph_seed_ids, *vector_article_ids])
         graph_context = self.graph.retrieve_context(graph_article_ids)
-        cypher_guide = build_cypher_guide()
+        cypher_guide  = build_cypher_guide()
 
+        # ── Step 3: synthesize answer ─────────────────────────────
         messages = build_hybrid_prompt(
-            query=query,
+            query=query,                        # giữ câu gốc cho user-facing
+            objective=refined_info["objective"],
             vector_context=vector_context,
             graph_context=graph_context,
             cypher_guide=cypher_guide,
         )
         answer = self.llm.chat(
-            messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            messages, temperature=temperature, max_tokens=max_tokens,
         )
+        answer = _strip_retrieval_debug_sections(answer)
+
+        # ── Step 4: post-process (citations + faithfulness) ──────
+        citations: list[dict] = []
+        annotated = answer
+        if self.enable_citations:
+            citations = extract_citations(
+                answer, vector_results, default_law_id=law_id,
+            )
+            annotated = annotate_answer(answer, citations)
+
+        faithfulness: dict = {}
+        if self.enable_faithfulness:
+            faithfulness = check_faithfulness(
+                answer, vector_context, llm=self.llm,
+            )
+
         return HybridRAGResult(
             answer=answer,
             vector_context=vector_context,
@@ -131,6 +174,10 @@ class HybridRAGService:
             vector_results=vector_results,
             graph_article_ids=graph_article_ids,
             cypher_guide=cypher_guide,
+            refined=refined_info,
+            citations=citations,
+            faithfulness=faithfulness,
+            annotated_answer=annotated,
         )
 
     def _run_vector(
@@ -222,6 +269,7 @@ def build_hybrid_prompt(
     vector_context: str,
     graph_context: str,
     cypher_guide: str,
+    objective: str = "",
 ) -> list[dict]:
     system = """Bạn là trợ lý pháp lý chuyên về luật công nghệ thông tin và an ninh mạng Việt Nam.
 Nhiệm vụ: tổng hợp câu trả lời từ hai nguồn đã truy xuất:
@@ -240,6 +288,16 @@ nhưng nội dung không xuất hiện trong VECTOR_CHUNKS
 - Khi hai nguồn mâu thuẫn, ưu tiên nguyên văn trong VECTOR_CHUNKS và nêu rõ graph chỉ là ngữ cảnh hỗ trợ.
 - Với câu hỏi về xử phạt/vi phạm, trình bày: hành vi; căn cứ; chế tài/mức phạt; biện pháp khắc phục nếu có.
 - Không tự tạo Cypher mới để thay thế dữ liệu đã truy xuất. CYPHER_GUIDE chỉ giúp hiểu schema và cách graph context được hình thành."""
+    system += """
+
+Output rules:
+- Do not print, quote, summarize, or expose raw VECTOR_CHUNKS, GRAPH_CONTEXT, CYPHER_GUIDE, chunk ids, graph ids, scores, or retrieval/debug sections.
+- Do not include headings such as VECTOR_CHUNKS, GRAPH_CONTEXT, Graph context, Vector chunks, or Context in the final answer.
+- Final answer must contain only the user-facing legal explanation and legal citations when relevant."""
+    objective_block = (
+        f"\n<MỤC_TIÊU_NGƯỜI_HỎI>\n{objective}\n</MỤC_TIÊU_NGƯỜI_HỎI>\n"
+        if objective else ""
+    )
     user = f"""<CYPHER_GUIDE>
 {cypher_guide}
 </CYPHER_GUIDE>
@@ -251,7 +309,7 @@ nhưng nội dung không xuất hiện trong VECTOR_CHUNKS
 <GRAPH_CONTEXT>
 {graph_context or "[Không có graph context phù hợp]"}
 </GRAPH_CONTEXT>
-
+{objective_block}
 <CÂU_HỎI>
 {query}
 </CÂU_HỎI>"""
@@ -352,6 +410,37 @@ def _unique(values: list[str]) -> list[str]:
     return out
 
 
+_DEBUG_SECTION_RE = re.compile(
+    r"(?ims)"
+    r"^\s*(?:#{1,6}\s*)?"
+    r"(?:={2,}\s*)?"
+    r"(?:VECTOR_CHUNKS?|GRAPH_CONTEXT|CYPHER_GUIDE|GRAPH_ARTICLE_IDS|"
+    r"Vector\s+chunks?|Graph\s+context|Cypher\s+guide)"
+    r"\s*(?:={2,})?\s*:?\s*$"
+    r".*?"
+    r"(?=^\s*(?:#{1,6}\s*)?(?:={2,}\s*)?"
+    r"(?:VECTOR_CHUNKS?|GRAPH_CONTEXT|CYPHER_GUIDE|GRAPH_ARTICLE_IDS|"
+    r"Vector\s+chunks?|Graph\s+context|Cypher\s+guide)"
+    r"\s*(?:={2,})?\s*:?\s*$|\Z)"
+)
+
+_DEBUG_TAG_RE = re.compile(
+    r"(?is)<\s*(VECTOR_CHUNKS?|GRAPH_CONTEXT|CYPHER_GUIDE|GRAPH_ARTICLE_IDS)\s*>"
+    r".*?"
+    r"<\s*/\s*\1\s*>"
+)
+
+
+def _strip_retrieval_debug_sections(answer: str) -> str:
+    """Remove leaked retrieval/debug blocks from the user-facing answer."""
+    if not answer:
+        return answer
+
+    cleaned = _DEBUG_TAG_RE.sub("", answer)
+    cleaned = _DEBUG_SECTION_RE.sub("", cleaned)
+    return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Hybrid RAG service CLI")
     p.add_argument("--qdrant-host", default=DEFAULT_QDRANT_HOST)
@@ -364,6 +453,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--top-k", type=int, default=None)
     p.add_argument("--min-rerank-score", type=float, default=0.0)
     p.add_argument("--show-context", action="store_true")
+    p.add_argument("--no-refine",       action="store_true",
+                   help="Tắt LLM query refinement")
+    p.add_argument("--no-faithfulness", action="store_true",
+                   help="Tắt claim verification (pass 2)")
+    p.add_argument("--no-citations",    action="store_true",
+                   help="Tắt extract citations")
     p.add_argument("query", nargs="*")
     return p
 
@@ -378,13 +473,16 @@ def main() -> int:
         neo4j_password=args.neo4j_password,
         device=args.device,
         min_rerank_score=args.min_rerank_score,
+        enable_refine=not args.no_refine,
+        enable_faithfulness=not args.no_faithfulness,
+        enable_citations=not args.no_citations,
     )
     try:
         # Single query mode
         initial = " ".join(args.query).strip()
         if initial:
             result = service.answer(initial, law_id=args.law_id, top_k=args.top_k)
-            print(result.answer)
+            _print_answer_block(result)
             if args.show_context:
                 _print_context(result)
             return 0
@@ -414,7 +512,7 @@ def main() -> int:
 
             try:
                 result = service.answer(query, law_id=args.law_id, top_k=args.top_k)
-                print(f"\n{result.answer}\n")
+                _print_answer_block(result)
                 if show_ctx:
                     _print_context(result)
             except Exception as ex:
@@ -422,6 +520,29 @@ def main() -> int:
         return 0
     finally:
         service.close()
+
+
+def _print_answer_block(result: HybridRAGResult) -> None:
+    refined = result.refined or {}
+    if refined.get("refined") and refined["refined"] != refined.get("original"):
+        print(f"\n[refined] {refined['refined']}")
+    if refined.get("objective"):
+        print(f"[mục tiêu] {refined['objective']}")
+
+    print(f"\n{result.annotated_answer or result.answer}\n")
+
+    if result.citations:
+        matched = sum(1 for c in result.citations if c["matched"])
+        print(f"  citations: {matched}/{len(result.citations)} matched")
+
+    f = result.faithfulness or {}
+    if f.get("total"):
+        ok  = "✓" if f.get("faithful") else "⚠"
+        print(f"  faithfulness {ok}  {f['supported']}/{f['total']}  "
+              f"score={f['score']:.2f}")
+        for issue in f.get("issues", [])[:3]:
+            print(f"    [?] {issue['claim'][:120]}")
+    print()
 
 
 def _print_context(result: HybridRAGResult) -> None:

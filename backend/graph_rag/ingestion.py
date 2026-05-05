@@ -23,6 +23,8 @@ import os
 import re
 import socket
 import sys
+import unicodedata
+import hashlib
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -38,11 +40,13 @@ from graph_rag.tham_chieu  import extract_tham_chieu                    # noqa: 
 from graph_rag.llm_relation import LlmRelationExtractor                 # noqa: E402
 from graph_rag.neo4j_loader import Neo4jKG                              # noqa: E402
 from graph_rag.ontology import (                                        # noqa: E402
-    is_node, edge_attr_role, get_layer,
+    ALL_NODE_TYPES, STRUCTURAL_NODES, is_node, edge_attr_role,
 )
 
 
 SO_HIEU_TO_LAW_ID = {meta["so_hieu"]: lid for lid, meta in LAW_META.items()}
+ENTITY_NODE_TYPES = ALL_NODE_TYPES - STRUCTURAL_NODES
+MAX_ARTICLE_RELATION_NODES = 30
 
 
 # ── Defaults ─────────────────────────────────────────────────────────
@@ -55,10 +59,42 @@ LLM_MODEL      = os.getenv("LLM_MODEL",      "Qwen/Qwen3.5-9B")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
+_ENTITY_PREFIXES = (
+    "cac loai", "mot so", "doi voi", "cac", "nhung", "mot", "ve",
+)
+
+
+def _strip_accents(text: str) -> str:
+    text = text.replace("đ", "d").replace("Đ", "D")
+    decomposed = unicodedata.normalize("NFD", text)
+    return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
+
+
+def _canonical_entity_text(text: str) -> str:
+    value = _strip_accents((text or "").replace("_", " ").lower())
+    value = re.sub(r"[^\w\s]", " ", value, flags=re.UNICODE)
+    value = re.sub(r"\s+", " ", value).strip()
+    changed = True
+    while changed:
+        changed = False
+        for prefix in _ENTITY_PREFIXES:
+            marker = prefix + " "
+            if value.startswith(marker) and len(value) > len(marker) + 2:
+                value = value[len(marker):].strip()
+                changed = True
+    return value
+
+
+def _canonical_entity_key(etype: str, text: str) -> str:
+    return f"{etype}:{_canonical_entity_text(text)}"
+
+
 def _make_node_id(etype: str, text: str) -> str:
-    clean = re.sub(r"\s+", "_", text.lower().strip())
-    clean = re.sub(r"[^\w_]", "", clean)
-    return f"{etype.lower()}_{clean[:60]}"
+    canonical = _canonical_entity_text(text)
+    slug = re.sub(r"\s+", "_", canonical).strip("_")
+    if not slug:
+        slug = hashlib.sha1((text or etype).encode("utf-8")).hexdigest()[:12]
+    return f"ent_{etype.lower()}_{slug[:80]}"
 
 
 def _make_chapter_id(law_id: str, chuong_so: str) -> str:
@@ -74,12 +110,15 @@ def _classify_entity(e: dict) -> tuple[str, dict | None]:
     Trả ('node', enriched_e) | ('edge_attr', role_dict) | ('skip', None).
     """
     etype = e["type"]
-    if is_node(etype):
+    if etype in STRUCTURAL_NODES:
+        return ("skip", None)
+    if etype in ENTITY_NODE_TYPES and is_node(etype):
         nid = _make_node_id(etype, e["text"])
         return ("node", {
             "id":           nid,
             "type":         etype,
             "label":        e["text"],
+            "canonical_key": _canonical_entity_key(etype, e["text"]),
             "score":        e.get("score"),
             "subclass":     e.get("subclass"),
             "sentence_idx": e.get("sentence_idx", 0),
@@ -246,10 +285,17 @@ def ingest_docx(file_path: str | Path,
 
     total_entities = 0
     total_edges    = 0
+    article_texts = {
+        c.neo4j_id: c.content for c in chunks if c.chunk_type == "dieu"
+    }
+    article_nodes: dict[str, dict[str, dict]] = {}
 
     # Chỉ chạy NER+LLM trên cấp khoan (granular hơn) hoặc trên dieu nếu Điều
     # không bị split khoan. → tránh trùng lặp.
     chunks_for_extraction = _select_extraction_chunks(chunks)
+    extraction_chunk_counts: dict[str, int] = {}
+    for c in chunks_for_extraction:
+        extraction_chunk_counts[c.neo4j_id] = extraction_chunk_counts.get(c.neo4j_id, 0) + 1
     print(f"  extraction chunks: {len(chunks_for_extraction)}")
 
     for chunk in chunks_for_extraction:
@@ -285,10 +331,12 @@ def ingest_docx(file_path: str | Path,
         for n in nodes_to_upsert:
             kg.upsert_entity(
                 node_id=n["id"], etype=n["type"], label=n["label"],
+                canonical_key=n.get("canonical_key"),
                 article_id=article_id, clause_id=anchor_clause,
                 sentence_idx=n["sentence_idx"], score=n["score"],
                 subclass=n.get("subclass"), source=n.get("source", "ner"),
             )
+            article_nodes.setdefault(article_id, {})[n["id"]] = n
         total_entities += len(nodes_to_upsert)
 
         # 4c. LLM extract edges
@@ -320,6 +368,35 @@ def ingest_docx(file_path: str | Path,
                 source="llm",
             )
         total_edges += len(edges)
+
+    # 4c. Article-level relation repair. Chunk-level extraction is precise, but
+    # can miss relations whose subject/object are split across neighboring chunks.
+    if llm:
+        for article_id, by_id in article_nodes.items():
+            if extraction_chunk_counts.get(article_id, 0) < 2:
+                continue
+            nodes = _select_article_relation_nodes(list(by_id.values()))
+            if len(nodes) < 2:
+                continue
+            edges = llm.extract(article_texts.get(article_id, ""), nodes)
+            for ed in edges:
+                ed["article_id"] = article_id
+                kg.upsert_edge(
+                    from_id=ed["from_id"], to_id=ed["to_id"], rel_type=ed["type"],
+                    modality=ed.get("modality"),
+                    condition=ed.get("condition"),
+                    exception=ed.get("exception"),
+                    scope=ed.get("scope"),
+                    time=ed.get("time"),
+                    status=ed.get("status"),
+                    classification=ed.get("classification"),
+                    level=ed.get("level"),
+                    evidence=ed.get("evidence"),
+                    article_id=article_id,
+                    sentence_idx=ed.get("sentence_idx"),
+                    source="llm_article",
+                )
+            total_edges += len(edges)
 
     # ── 5. Stats ───────────────────────────────────────────────────
     stats = kg.stats()
@@ -356,6 +433,41 @@ def _select_extraction_chunks(chunks: list[LawChunk]) -> list[LawChunk]:
         elif c.chunk_type == "dieu" and not has_khoan.get(c.neo4j_id):
             out.append(c)
     return out
+
+
+_RELATION_NODE_PRIORITY = {
+    "LEGAL_ACTOR": 0,
+    "CYBER_ACTOR": 0,
+    "IT_ACTOR": 0,
+    "TELECOM_OPERATOR": 0,
+    "SYSTEM": 1,
+    "DATA": 1,
+    "DATA_TYPE": 1,
+    "LEGAL_ACTION": 2,
+    "VIOLATION": 2,
+    "SANCTION": 2,
+    "LEGAL_CONCEPT": 3,
+}
+
+
+def _select_article_relation_nodes(nodes: list[dict]) -> list[dict]:
+    """Keep article-level repair prompts bounded and deterministic."""
+    best: dict[str, dict] = {}
+    for n in nodes:
+        current = best.get(n["id"])
+        if current is None or float(n.get("score") or 0.0) > float(current.get("score") or 0.0):
+            best[n["id"]] = n
+
+    ordered = sorted(
+        best.values(),
+        key=lambda n: (
+            _RELATION_NODE_PRIORITY.get(n.get("type"), 9),
+            -float(n.get("score") or 0.0),
+            len(n.get("label") or ""),
+            n["id"],
+        ),
+    )
+    return ordered[:MAX_ARTICLE_RELATION_NODES]
 
 
 # ── CLI test ─────────────────────────────────────────────────────────

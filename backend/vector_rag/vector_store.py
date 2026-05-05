@@ -2,13 +2,11 @@
 vector_store.py — Qdrant collection cho Vector RAG (LegalChunk).
 
 Collection schema:
-  - vector "dense" : float, COSINE
-  - quantization   : SCALAR INT8 (always_ram=True) — search nhanh hơn 4x
-  - rescore        : oversampling=2.0 trên fp32 raw để giữ recall
+  - vector "dense"  : float, COSINE  (+ ScalarQuantization INT8 + rescore)
+  - vector "sparse" : SparseVector  (BM25 weights — hybrid search)
 
-Payload schema (LegalChunk → point.payload):
-  chunk_id, law_id, chapter, article (= neo4j_id), clause, points, content,
-  token_count, chunk_type, refs[], metadata{...}
+Payload: chunk_id, law_id, chapter, article, clause, points, content,
+         token_count, chunk_type, refs[], metadata{...}
 """
 from __future__ import annotations
 
@@ -35,6 +33,7 @@ class VectorStore:
         from qdrant_client.models import (
             Distance, PayloadSchemaType,
             ScalarQuantization, ScalarQuantizationConfig, ScalarType,
+            SparseIndexParams, SparseVectorParams,
             VectorParams,
         )
 
@@ -51,16 +50,18 @@ class VectorStore:
             vectors_config={
                 "dense": VectorParams(size=dim, distance=Distance.COSINE),
             },
+            sparse_vectors_config={
+                "sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False)),
+            },
             quantization_config=ScalarQuantization(
                 scalar=ScalarQuantizationConfig(
                     type=ScalarType.INT8,
-                    quantile=0.99,       # robust với outlier
-                    always_ram=True,     # quantized vectors trong RAM → search nhanh
+                    quantile=0.99,
+                    always_ram=True,
                 ),
             ),
         )
 
-        # Payload indexes — filter nhanh
         for field in ("law_id", "article", "chunk_type", "chapter"):
             self.client.create_payload_index(
                 collection_name=COLLECTION_NAME,
@@ -68,25 +69,34 @@ class VectorStore:
                 field_schema=PayloadSchemaType.KEYWORD,
             )
 
-        print(f"[vector_store] Created {COLLECTION_NAME!r}  dim={dim}  COSINE  INT8")
+        print(f"[vector_store] Created {COLLECTION_NAME!r}  dim={dim}  COSINE+INT8  +sparse")
 
     # ════════════════════════════════════════════════════════════════
     # Upsert
     # ════════════════════════════════════════════════════════════════
-    def upsert_chunks(self, chunks: list, dense_vectors: List[List[float]]) -> None:
-        """chunks: list[LegalChunk]; dense_vectors cùng thứ tự."""
-        from qdrant_client.models import PointStruct
+    def upsert_chunks(
+        self,
+        chunks: list,
+        dense_vectors: List[List[float]],
+        sparse_vectors: List[tuple[List[int], List[float]]],
+    ) -> None:
+        """chunks/dense/sparse cùng thứ tự. sparse = list[(indices, values)]."""
+        from qdrant_client.models import PointStruct, SparseVector
 
         points: list[PointStruct] = []
-        for c, vec in zip(chunks, dense_vectors):
+        for c, d, s in zip(chunks, dense_vectors, sparse_vectors):
+            ids, vals = s
+            vec: dict[str, Any] = {"dense": d}
+            if ids:
+                vec["sparse"] = SparseVector(indices=ids, values=vals)
             points.append(PointStruct(
                 id=c.chunk_id,
-                vector={"dense": vec},
+                vector=vec,
                 payload={
                     "chunk_id":    c.chunk_id,
                     "law_id":      c.law_id,
                     "chapter":     c.chapter,
-                    "article":     c.article,        # = neo4j_id (cầu sang Graph RAG)
+                    "article":     c.article,
                     "clause":      c.clause,
                     "points":      c.points,
                     "content":     c.content,
@@ -103,10 +113,10 @@ class VectorStore:
                 collection_name=COLLECTION_NAME,
                 points=points[i:i + BATCH],
             )
-        print(f"[vector_store] Upserted {len(points)} points.")
+        print(f"[vector_store] Upserted {len(points)} points (dense+sparse).")
 
     # ════════════════════════════════════════════════════════════════
-    # Search — int8 + rescore với fp32 raw
+    # Search
     # ════════════════════════════════════════════════════════════════
     def search_dense(
         self,
@@ -115,24 +125,14 @@ class VectorStore:
         law_id: Optional[str] = None,
         chunk_type: Optional[str] = None,
         oversampling: float = 2.0,
+        with_vectors: bool = False,
     ) -> list:
-        """
-        Search trên int8 quantized vectors → rescore với fp32 raw để giữ recall.
-        oversampling=2.0 nghĩa là Qdrant lấy 2*top_k candidates ở int8 rồi rescore.
-        """
+        """Search trên int8 quantized vectors → rescore với fp32 raw."""
         from qdrant_client.models import (
-            FieldCondition, Filter, MatchValue,
             QuantizationSearchParams, SearchParams,
         )
+        flt = self._build_filter(law_id, chunk_type)
 
-        must: list[FieldCondition] = []
-        if law_id:
-            must.append(FieldCondition(key="law_id", match=MatchValue(value=law_id)))
-        if chunk_type:
-            must.append(FieldCondition(key="chunk_type", match=MatchValue(value=chunk_type)))
-        flt = Filter(must=must) if must else None
-
-        # qdrant-client ≥ 1.10: dùng query_points (search() đã deprecated/bỏ)
         resp = self.client.query_points(
             collection_name=COLLECTION_NAME,
             query=query_vector,
@@ -140,40 +140,81 @@ class VectorStore:
             query_filter=flt,
             limit=top_k,
             with_payload=True,
+            with_vectors=with_vectors,
             search_params=SearchParams(
                 quantization=QuantizationSearchParams(
-                    ignore=False,            # dùng int8 cho first-pass
-                    rescore=True,            # rescore với fp32 raw
-                    oversampling=oversampling,
+                    ignore=False, rescore=True, oversampling=oversampling,
                 ),
             ),
         )
         return resp.points
 
+    def search_sparse(
+        self,
+        indices: List[int],
+        values: List[float],
+        top_k: int = 10,
+        law_id: Optional[str] = None,
+        chunk_type: Optional[str] = None,
+    ) -> list:
+        """BM25 sparse search."""
+        if not indices:
+            return []
+        from qdrant_client.models import SparseVector
+        flt = self._build_filter(law_id, chunk_type)
+
+        try:
+            resp = self.client.query_points(
+                collection_name=COLLECTION_NAME,
+                query=SparseVector(indices=indices, values=values),
+                using="sparse",
+                query_filter=flt,
+                limit=top_k,
+                with_payload=True,
+            )
+            return resp.points
+        except Exception as ex:
+            # Collection cũ chưa có sparse index → trả empty
+            print(f"[vector_store] sparse search skipped: {ex}")
+            return []
+
+    # ════════════════════════════════════════════════════════════════
     def get_by_article(
         self,
         article_id: str,
-        *,
         law_id: Optional[str] = None,
-        limit: int = 30,
+        limit: int = 50,
     ) -> list:
-        """Fetch chunks that belong to one ARTICLE id, e.g. LuatAnNinhMang2025_dieu_10."""
-        from qdrant_client.models import FieldCondition, Filter, MatchValue
-
+        """Lookup direct theo article id (cho intent='lookup')."""
+        from qdrant_client.models import (
+            FieldCondition, Filter, MatchValue,
+        )
         must = [FieldCondition(key="article", match=MatchValue(value=article_id))]
         if law_id:
             must.append(FieldCondition(key="law_id", match=MatchValue(value=law_id)))
-        points, _ = self.client.scroll(
+        flt = Filter(must=must)
+        resp = self.client.scroll(
             collection_name=COLLECTION_NAME,
-            scroll_filter=Filter(must=must),
+            scroll_filter=flt,
             limit=limit,
             with_payload=True,
-            with_vectors=False,
         )
-        return points
+        return resp[0]  # tuple(points, next_offset)
 
-    # ════════════════════════════════════════════════════════════════
-    # Stats
+    # ────────────────────────────────────────────────────────────────
+    def _build_filter(
+        self,
+        law_id: Optional[str],
+        chunk_type: Optional[str],
+    ):
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+        must: list[FieldCondition] = []
+        if law_id:
+            must.append(FieldCondition(key="law_id", match=MatchValue(value=law_id)))
+        if chunk_type:
+            must.append(FieldCondition(key="chunk_type", match=MatchValue(value=chunk_type)))
+        return Filter(must=must) if must else None
+
     # ════════════════════════════════════════════════════════════════
     def get_collection_info(self) -> dict[str, Any]:
         info = self.client.get_collection(COLLECTION_NAME)

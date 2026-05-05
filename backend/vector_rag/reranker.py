@@ -70,10 +70,11 @@ class Reranker:
                 return_tensors="pt",
             ).to(self.device)
             logits = self._mdl(**inputs).logits.float()
-            # 1 output  → relevance score trực tiếp
-            # 2 outputs → softmax, lấy positive class
+            # Cả hai trường hợp đều chuẩn hoá về [0, 1]:
+            #  • 1 output  → sigmoid(logit)
+            #  • 2 outputs → softmax(logits)[:, positive_class]
             if logits.shape[-1] == 1:
-                batch_scores = logits.view(-1)
+                batch_scores = torch.sigmoid(logits.view(-1))
             else:
                 batch_scores = torch.softmax(logits, dim=-1)[:, -1]
             scores.extend(batch_scores.cpu().tolist())
@@ -96,9 +97,12 @@ class Reranker:
         scored: list[dict] = []
         for h, s in zip(hits, scores):
             p = _payload(h)
+            # Cosine với vector đã normalize → clamp về [0, 1] để đồng bộ
+            dense = float(getattr(h, "score", 0.0))
+            dense = max(0.0, min(1.0, dense))
             scored.append({
-                "score":       float(s),
-                "dense_score": float(getattr(h, "score", 0.0)),
+                "score":       float(s),       # đã ∈ [0, 1]
+                "dense_score": dense,           # ∈ [0, 1]
                 "neo4j_id":    p.get("article", ""),    # cầu sang Graph RAG
                 "chunk_id":    p.get("chunk_id", ""),
                 "chunk_type":  p.get("chunk_type", ""),
