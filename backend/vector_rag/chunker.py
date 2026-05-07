@@ -240,7 +240,7 @@ def chunk_law(text: str, law_name: str) -> list[LawChunk]:
                     if idx > 5:
                         raw_ten = raw_ten[:idx]
                         break
-                dieu_ten = raw_ten.strip().rstrip(".")[:120]
+                dieu_ten = raw_ten.strip().rstrip(".")[:250]
             else:
                 dieu_ten = f"Điều {dieu_so}"
 

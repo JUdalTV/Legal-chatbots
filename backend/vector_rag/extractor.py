@@ -24,6 +24,10 @@ def extract_docx(path: str) -> str:
 
     raw = "\n".join(lines)
 
+    # VBHN: inline chú thích bãi bỏ vào body TRƯỚC khi strip [N], để giữ
+    # thông tin "Điều X bị bãi bỏ theo Luật Y số NN/YYYY/QH" trong content.
+    raw = _inline_vbhn_abrogation_notes(raw)
+
     # Strip footnote refs `[N]` trước merge để không phá pattern "Điều X." / "N."
     # (VBHN có "Điều 10.[6]" và "9.[2]" — phải normalize trước khi parse line)
     raw = _strip_footnote_refs(raw)
@@ -112,6 +116,12 @@ def _merge_wrapped_lines(text: str) -> str:
         r"|[a-zđ]\)\s|LUẬT|CỘNG HÒA|QUỐC HỘI|[_=\-]{5,}\s*$)"
     )
     SENTENCE_END = re.compile(r"[.;:]\s*$")
+    # Buffer là dòng tiêu đề "Điều X. <Title>" — chặn merge body vào tiêu đề.
+    # Nhưng cho phép merge khi buffer kết thúc bằng dấu phẩy/chấm phẩy (title
+    # dài bị wrap qua nhiều paragraph trong docx, line tiếp là phần còn lại
+    # của title chứ không phải body).
+    ARTICLE_HEADER_BUFFER = re.compile(r"^Điều\s+\d+[a-z]?\.\s+\S")
+    TITLE_CONTINUES = re.compile(r"[,;]\s*$")
 
     for line in lines:
         if not line.strip():
@@ -121,9 +131,15 @@ def _merge_wrapped_lines(text: str) -> str:
             result.append("")
             continue
 
+        is_article_header_complete = (
+            ARTICLE_HEADER_BUFFER.match(buffer)
+            and not TITLE_CONTINUES.search(buffer)
+        )
         if not buffer:
             buffer = line
-        elif KEEP_NEWLINE_START.match(line) or SENTENCE_END.search(buffer):
+        elif (KEEP_NEWLINE_START.match(line)
+              or SENTENCE_END.search(buffer)
+              or is_article_header_complete):
             result.append(buffer)
             buffer = line
         else:
@@ -162,6 +178,44 @@ def _strip_vbhn_footnotes(text: str) -> str:
     if m:
         return text[:m.start()].rstrip()
     return text
+
+
+def _inline_vbhn_abrogation_notes(text: str) -> str:
+    """
+    Trong VBHN, body có markers `[N]` (vd "Điều 10.[6] (được bãi bỏ)") và phần
+    cuối sau separator `______` có chú thích "[N] Điều này được bãi bỏ theo...".
+    Pipeline cũ strip [N] mất link, làm mất context bãi bỏ.
+
+    Hàm này:
+      1. Parse footnote section (mỗi dòng `[N] <text>`)
+      2. Chỉ giữ note nói về 'bãi bỏ' / 'hết hiệu lực'
+      3. Replace marker `[N]` trong body bằng " [⚠️ <note text>]"
+    Footnote section sau đó vẫn được _strip_vbhn_footnotes cắt bỏ ở clean_text.
+    """
+    sep_match = re.search(r"\n[_=\-]{5,}", text)
+    if not sep_match:
+        return text
+    body = text[:sep_match.start()]
+    fn_section = text[sep_match.end():]
+
+    notes: dict[str, str] = {}
+    for line in fn_section.split("\n"):
+        m = re.match(r"^\s*\[(\d+)\]\s+(.+)", line)
+        if not m:
+            continue
+        idx, txt = m.group(1), m.group(2).strip()
+        if re.search(r"bãi bỏ|hết hiệu lực", txt, re.IGNORECASE):
+            notes[idx] = txt
+
+    if not notes:
+        return text
+
+    def repl(m: re.Match) -> str:
+        n = m.group(1)
+        return f" [⚠️ {notes[n]}]" if n in notes else ""
+
+    new_body = re.sub(r"\[(\d+)\]", repl, body)
+    return new_body + text[sep_match.start():]
 
 
 def _strip_footnote_refs(text: str) -> str:

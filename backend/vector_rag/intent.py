@@ -2,7 +2,7 @@
 intent.py — Heuristic phân loại query intent → top_k.
 
   lookup     k=4   "Điều 15 nói gì?", "Khoản 2 Điều 11..."
-  thematic   k=5   "trách nhiệm doanh nghiệp viễn thông"
+  thematic   k=7   "trách nhiệm doanh nghiệp viễn thông"
   compare    k=6   "khác nhau giữa", "trường hợp", "nếu/thì"
   cross_law  k=6   "theo Luật ... và Luật ..."
 
@@ -15,7 +15,7 @@ import re
 
 _K_BY_INTENT = {
     "lookup":    4,
-    "thematic":  6,
+    "thematic":  7,
     "compare":   6,
     "cross_law": 6,
 }

@@ -77,6 +77,108 @@ def exact_match(ground_truth: str, model_answer: str) -> float:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# Citation Accuracy (tự tính từ model_answer vs reference)
+# ═══════════════════════════════════════════════════════════════════
+_CITE_PATTERN = re.compile(
+    r"(?:[ĐĐđ]iều|điều)\s+(\d+[a-z]?)"
+    r"(?:[,\s]*[Kk]hoản\s+(\d+))?"
+    r"(?:[,\s]*[Đđ]iểm\s+([a-zđ]))?",
+    re.IGNORECASE,
+)
+
+
+def _parse_citations(text: str) -> set[str]:
+    """Parse tất cả citations dạng 'Điều X', 'Khoản Y Điều X', 'Điểm z' từ text."""
+    cites = set()
+    for m in _CITE_PATTERN.finditer(text):
+        dieu = m.group(1)
+        khoan = m.group(2)
+        diem = m.group(3)
+        cite = f"Điều {dieu}"
+        if khoan:
+            cite += f", khoản {khoan}"
+        if diem:
+            cite += f", điểm {diem}"
+        cites.add(cite.lower())
+        # Thêm cả dạng ngắn
+        cites.add(f"điều {dieu}")
+        if khoan:
+            cites.add(f"điều {dieu}, khoản {khoan}")
+    return cites
+
+
+def _normalize_ref(ref: str) -> set[str]:
+    """Normalize reference string thành set các citation cần match."""
+    refs = set()
+    ref_lower = ref.lower().strip()
+    refs.add(ref_lower)
+    # Parse từng phần
+    for m in _CITE_PATTERN.finditer(ref):
+        dieu = m.group(1)
+        refs.add(f"điều {dieu}")
+        if m.group(2):
+            refs.add(f"điều {dieu}, khoản {m.group(2)}")
+    # Fallback: tìm số điều
+    dieu_nums = re.findall(r"[ĐĐđ]iều\s+(\d+[a-z]?)", ref, re.IGNORECASE)
+    for d in dieu_nums:
+        refs.add(f"điều {d}")
+    return refs
+
+
+def compute_citations(model_answer: str, reference: str) -> float:
+    """Tính citation accuracy: model có trích dẫn đúng reference không."""
+    if not reference or reference.strip().lower() == "n/a":
+        return 1.0  # không yêu cầu citation
+    ref_cites = _normalize_ref(reference)
+    model_cites = _parse_citations(model_answer)
+    if not ref_cites:
+        return 1.0
+    # Kiểm tra model có mention ít nhất 1 citation khớp reference
+    matched = ref_cites & model_cites
+    # Score = có match hay không (binary cho đơn giản)
+    # Hoặc tính tỷ lệ: bao nhiêu điều trong reference được model nhắc
+    ref_dieus = set(re.findall(r"[ĐĐđ]iều\s+(\d+[a-z]?)", reference, re.IGNORECASE))
+    if not ref_dieus:
+        return 1.0
+    model_dieus = set(re.findall(r"[ĐĐđ]iều\s+(\d+[a-z]?)", model_answer, re.IGNORECASE))
+    hit = len(ref_dieus & model_dieus)
+    return round(hit / len(ref_dieus), 4)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Faithfulness (sentence-level: mỗi câu trong model_answer có
+# overlap đủ với ground_truth không)
+# ═══════════════════════════════════════════════════════════════════
+def _split_sentences(text: str) -> list[str]:
+    """Split text thành các câu."""
+    sents = re.split(r'(?<=[.!?;])\s+', text.strip())
+    return [s.strip() for s in sents if len(s.strip()) > 10]
+
+
+def compute_faithfulness(model_answer: str, ground_truth: str) -> float:
+    """Tính faithfulness: tỷ lệ câu trong model_answer được hỗ trợ bởi ground_truth."""
+    model_sents = _split_sentences(model_answer)
+    if not model_sents:
+        return 0.0
+
+    gt_tokens = set(_tokenize(ground_truth))
+    if not gt_tokens:
+        return 0.0
+
+    supported = 0
+    for sent in model_sents:
+        sent_tokens = set(_tokenize(sent))
+        if not sent_tokens:
+            continue
+        # Overlap ratio: bao nhiêu token trong câu model xuất hiện trong ground_truth
+        overlap = len(sent_tokens & gt_tokens) / len(sent_tokens)
+        if overlap >= 0.4:  # threshold: 40% token overlap = supported
+            supported += 1
+
+    return round(supported / len(model_sents), 4)
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Semantic Similarity (cosine, dùng sentence-transformers)
 # ═══════════════════════════════════════════════════════════════════
 def semantic_similarity(gt: str, ma: str, model=None) -> float:
@@ -172,9 +274,10 @@ def score_benchmark(
         # LLM judge
         llm_score = llm_judge(q, gt, ma, llm_client)
 
-        # Existing scores from file (handle null)
-        citations_score = item.get("citations_score") or 0.0
-        faithfulness_score = item.get("faithfulness_score") or 0.0
+        # Tự tính citations và faithfulness từ model_answer mới
+        reference = item.get("reference", "")
+        citations_score = compute_citations(ma, reference)
+        faithfulness_score = compute_faithfulness(ma, gt)
 
         # Composite score (weighted average of available metrics)
         components = [

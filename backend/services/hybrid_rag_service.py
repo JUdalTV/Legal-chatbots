@@ -24,10 +24,12 @@ from backend.graph_rag.neo4j_loader import Neo4jKG
 from backend.graph_rag.ontology import ALL_NODE_TYPES, RELATION_CATALOG
 from backend.vector_rag.intent import classify_intent, extract_article_number
 from backend.vector_rag.pipeline import VectorRAGPipeline
-from backend.services.citation import annotate_answer, extract_citations
-from backend.services.faithfulness import check_faithfulness
 from backend.services.llm_client import LLMClient
 from backend.services.query_refiner import refine_query
+
+# Note: citation.py + faithfulness.py vẫn còn trong codebase nhưng KHÔNG còn
+# nằm trong hybrid pipeline. Giữ lại 2 file để dùng programmatic ở chỗ khác
+# (vd: benchmark scoring).
 
 
 DEFAULT_QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
@@ -46,9 +48,6 @@ class HybridRAGResult:
     graph_article_ids: list[str]
     cypher_guide: str
     refined: dict          # {original, intent, objective, refined}
-    citations: list[dict]  # extract_citations output
-    faithfulness: dict     # check_faithfulness output
-    annotated_answer: str  # answer + [✓]/[?] markers
 
 
 class HybridRAGService:
@@ -71,10 +70,8 @@ class HybridRAGService:
         neo4j_password: str = DEFAULT_NEO4J_PASSWORD,
         device: str = "gpu",
         llm: LLMClient | None = None,
-        min_rerank_score: float = 0.0,
+        min_rerank_score: float = 0.20,
         enable_refine:       bool = True,
-        enable_faithfulness: bool = True,
-        enable_citations:    bool = True,
     ):
         self.vector = VectorRAGPipeline(
             qdrant_host=qdrant_host,
@@ -85,9 +82,7 @@ class HybridRAGService:
         self.kg = Neo4jKG(neo4j_uri, neo4j_user, neo4j_password)
         self.graph = GraphRetriever(self.kg)
         self.llm = llm or LLMClient()
-        self.enable_refine       = enable_refine
-        self.enable_faithfulness = enable_faithfulness
-        self.enable_citations    = enable_citations
+        self.enable_refine = enable_refine
 
     def close(self) -> None:
         self.kg.close()
@@ -99,13 +94,15 @@ class HybridRAGService:
         law_id: str | None = None,
         top_k: int | None = None,
         min_rerank_score: float | None = None,
-        temperature: float = 0.2,
-        max_tokens: int = 4096,
+        temperature: float = 0.1,
+        max_tokens: int = 2048,
     ) -> HybridRAGResult:
-        # ── Step 1: tinh chỉnh query (intent-aware) ────────────────
+        # ── Step 1: tinh chỉnh query (intent-aware, law-locked nếu có) ──
         intent = classify_intent(query)
         if self.enable_refine:
-            refined_info = refine_query(query, intent=intent, llm=self.llm)
+            refined_info = refine_query(
+                query, intent=intent, law_id=law_id, llm=self.llm,
+            )
         else:
             refined_info = {
                 "original": query, "intent": intent,
@@ -149,23 +146,9 @@ class HybridRAGService:
         )
         answer = self.llm.chat(
             messages, temperature=temperature, max_tokens=max_tokens,
+            extra_payload={"top_p": 0.9, "repetition_penalty": 1.03},
         )
         answer = _strip_retrieval_debug_sections(answer)
-
-        # ── Step 4: post-process (citations + faithfulness) ──────
-        citations: list[dict] = []
-        annotated = answer
-        if self.enable_citations:
-            citations = extract_citations(
-                answer, vector_results, default_law_id=law_id,
-            )
-            annotated = annotate_answer(answer, citations)
-
-        faithfulness: dict = {}
-        if self.enable_faithfulness:
-            faithfulness = check_faithfulness(
-                answer, vector_context, llm=self.llm,
-            )
 
         return HybridRAGResult(
             answer=answer,
@@ -175,9 +158,6 @@ class HybridRAGService:
             graph_article_ids=graph_article_ids,
             cypher_guide=cypher_guide,
             refined=refined_info,
-            citations=citations,
-            faithfulness=faithfulness,
-            annotated_answer=annotated,
         )
 
     def _run_vector(
@@ -271,23 +251,72 @@ def build_hybrid_prompt(
     cypher_guide: str,
     objective: str = "",
 ) -> list[dict]:
-    system = """Bạn là trợ lý pháp lý chuyên về luật công nghệ thông tin và an ninh mạng Việt Nam.
-Nhiệm vụ: tổng hợp câu trả lời từ hai nguồn đã truy xuất:
-1. VECTOR_CHUNKS: trích đoạn văn bản luật, ưu tiên làm căn cứ chính.
-2. GRAPH_CONTEXT: ngữ cảnh knowledge graph gồm điều luật, khoản, thực thể, quan hệ, tham chiếu.
+    system = """Bạn là trợ lý pháp lý chuyên luật CNTT và an ninh mạng Việt Nam.
+Nguồn: VECTOR_CHUNKS (ưu tiên) + GRAPH_CONTEXT.
 
-Quy tắc:
-Nếu một điều luật được đề cập trong GRAPH_CONTEXT 
-nhưng nội dung không xuất hiện trong VECTOR_CHUNKS
-→ KHÔNG trích dẫn điều đó.
-→ Thay bằng: "Cần tra cứu thêm [Điều X] — chưa có 
-  trong văn bản được cung cấp.
-  
-- Chỉ nêu căn cứ pháp lý cụ thể nếu căn cứ đó xuất hiện trong VECTOR_CHUNKS hoặc GRAPH_CONTEXT.
-- Khi hai nguồn bổ sung nhau, hợp nhất thành câu trả lời mạch lạc, không lặp nguồn.
-- Khi hai nguồn mâu thuẫn, ưu tiên nguyên văn trong VECTOR_CHUNKS và nêu rõ graph chỉ là ngữ cảnh hỗ trợ.
-- Với câu hỏi về xử phạt/vi phạm, trình bày: hành vi; căn cứ; chế tài/mức phạt; biện pháp khắc phục nếu có.
-- Không tự tạo Cypher mới để thay thế dữ liệu đã truy xuất. CYPHER_GUIDE chỉ giúp hiểu schema và cách graph context được hình thành."""
+NGUYÊN TẮC TỐI THƯỢNG: ĐÚNG TRỌNG TÂM — ĐỦ — KHÔNG THỪA. Bám sát ngôn ngữ luật, không paraphrase, không diễn giải, không biện hộ.
+
+<độ_dài_theo_dạng>
+- Hỏi 1 số/ngày/cơ quan: 1 câu chứa đáp án + căn cứ.
+- Hỏi định nghĩa: trích NGUYÊN VĂN, không paraphrase ("Định nghĩa này bao gồm... khía cạnh" — CẤM).
+- Hỏi liệt kê: giữ ký hiệu gốc của luật (a, b, c, đ, e, g, h, i, k...), KHÔNG đổi sang (1)(2)(3), KHÔNG tự đặt nhãn từng mục.
+- Hỏi so sánh: trích định nghĩa nguyên văn từng đối tượng + nêu giống/khác CHỈ theo tiêu chí được hỏi.
+- Hỏi xử phạt: hành vi → căn cứ → chế tài → biện pháp khắc phục (nếu có).
+</độ_dài_theo_dạng>
+
+<ba_trạng_thái>
+Phân loại câu trả lời và xử lý khác nhau:
+
+A — Luật quy định RÕ + ĐỦ → trả lời trực tiếp + trích nguyên văn + căn cứ.
+
+B — Luật CÓ quy định nhưng CÓ khoảng trống → BẮT BUỘC phân tích, KHÔNG né. Cấu trúc: "Luật quy định [X] tại [Điều, khoản]. Tuy nhiên, văn bản KHÔNG nêu [Y cụ thể: cơ chế giám sát / chế tài / cơ quan độc lập]."
+
+C — Luật HOÀN TOÀN KHÔNG quy định → "Luật không quy định cụ thể về [X]." + (tùy chọn) trích quy định gần liên quan.
+
+LƯU Ý: "Vượt phạm vi văn bản" KHÔNG phải lá chắn cho câu khó. Nếu phân tích được khoảng trống cụ thể → là Trạng thái B, phải phân tích.
+</ba_trạng_thái>
+
+<trích_dẫn>
+- Format BẮT BUỘC khi context có nhiều luật: [Tên luật] Điều X, khoản Y, điểm Z. KHÔNG được chỉ ghi "Điều X".
+- KHÔNG nhầm Điều cùng số giữa các luật. Không chắc → KHÔNG trích.
+- VERIFY substantive trước khi dùng cross-law: chủ thể + hành vi + đối tượng phải KHỚP câu hỏi. Trùng từ khóa ("thông tin", "an ninh") KHÔNG đủ. Vd: câu hỏi về "trách nhiệm người đứng đầu cơ quan" — Điều về "bảo mật tài khoản số của người dùng" KHÔNG liên quan dù cùng có "thông tin".
+- Khi kết hợp ≥2 luật, BẮT BUỘC mở đầu bằng câu chuyển tiếp rõ: "Tổng hợp hai luật: [Luật A] Điều X quy định [...]; [Luật B] Điều Y quy định [...] — kết hợp lại xác định: [...]". KHÔNG trộn 2 luật vào 1 câu không gắn nhãn.
+- Điều chỉ có trong GRAPH_CONTEXT mà KHÔNG có nội dung trong VECTOR_CHUNKS → KHÔNG trích.
+- Hai nguồn mâu thuẫn → ưu tiên nguyên văn VECTOR_CHUNKS.
+</trích_dẫn>
+
+<kết_luận>
+Kết luận PHẢI khớp với độ chắc chắn của căn cứ. KHÔNG over-claim, KHÔNG né.
+
+3 mức kết luận:
+(1) RÕ: source quy định trực tiếp → kết luận thẳng.
+(2) PHÂN TÍCH ĐƯỢC: source có quy định cùng chủ đề nhưng đòi đánh giá ranh giới → trích phần CÓ + nêu phần KHÔNG có. KHÔNG bình luận "đã đủ"/"chưa đủ".
+(3) THIẾU DỮ LIỆU: source hoàn toàn không có → "Văn bản không quy định về [X]. Không thể kết luận trong phạm vi văn bản."
+
+CÂU HỎI NHỊ PHÂN VỀ THUẬT NGỮ CHƯA ĐỊNH NGHĨA (chống expressio unius):
+Khi hỏi "X có phải/có thuộc Y không" mà (a) Y không được định nghĩa, HOẶC (b) điều khoản chỉ TRAO QUYỀN cho danh sách (X1, X2) không kèm "duy nhất"/"chỉ"/"không bao gồm" → CẤM kết luận "CÓ"/"KHÔNG" dứt khoát.
+Cấu trúc: trích quy định + chỉ rõ luật không định nghĩa Y + liệt kê trường hợp luật ghi rõ + KẾT LUẬN: "phụ thuộc vào diễn giải; văn bản không cung cấp tiêu chí quyết định."
+
+Chỉ kết luận nhị phân khi: thuật ngữ ĐƯỢC định nghĩa rõ + trường hợp rõ ràng nằm trong/ngoài, HOẶC luật dùng "duy nhất"/"chỉ"/"không được"/"cấm" tường minh, HOẶC câu hỏi về sự kiện hiển nhiên ("hiệu lực ngày nào").
+
+VÍ DỤ: Q "Sao chép để chuyển máy có phải 'lưu trữ dự phòng' không?" + Source "trao quyền sao chép cho dự phòng và thay thế phần mềm hỏng" (không định nghĩa "dự phòng").
+SAI: "KHÔNG được coi là lưu trữ dự phòng" (= expressio unius).
+ĐÚNG: "Luật trao quyền cho 2 trường hợp [...], không định nghĩa 'dự phòng' và không tuyên bố danh sách đóng. Việc chuyển máy có thuộc 'dự phòng' hay không phụ thuộc vào diễn giải; văn bản không có tiêu chí quyết định."
+
+QUY TRÌNH NHIỀU GIAI ĐOẠN: Tách riêng từng giai đoạn, KHÔNG trộn vào 1 kết luận chung. "Đối với [A]: [Điều X áp dụng]. Đối với [B]: Điều X KHÔNG áp dụng vì... / không có Điều áp dụng riêng."
+</kết_luận>
+
+<cấm>
+- Cụm hedge ngụy trang: "thường được coi là", "thông thường", "trên thực tế", "có thể hiểu rằng", "có thể coi là", "theo nguyên tắc chung", "trong thực tiễn pháp lý".
+- Suy ra quy định cụ thể từ nguyên tắc chung. CẤM "bao gồm cả 4G/5G", "áp dụng cho cả X và Y" nếu source không liệt kê.
+- Kết luận "đã có cơ chế kiểm soát đầy đủ" / "không có rủi ro lạm dụng" / "không mâu thuẫn nội tại" khi cơ chế chỉ là thủ tục hành chính nội bộ.
+- "Do đó", "Vì vậy", "Từ đó suy ra" để rút kết luận về tính đầy đủ.
+- Metadata không hỏi: "Quốc hội khóa XV thông qua ngày...", "thuộc Chương X".
+- Cross-reference ngoài câu hỏi: "Ngoài ra", "Bên cạnh đó", "Cùng với đó", "Đáng chú ý".
+- Hậu quả/chế tài khi chỉ hỏi định nghĩa.
+- Bỏ sót chi tiết định lượng: thời hạn ("trong thời hạn 12 tháng"), số lượng, ngày tháng, ngoại lệ ("trừ trường hợp...").
+- Tự tạo Cypher mới. CYPHER_GUIDE chỉ giúp hiểu schema.
+</cấm>"""
     system += """
 
 Output rules:
@@ -455,12 +484,41 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--show-context", action="store_true")
     p.add_argument("--no-refine",       action="store_true",
                    help="Tắt LLM query refinement")
-    p.add_argument("--no-faithfulness", action="store_true",
-                   help="Tắt claim verification (pass 2)")
-    p.add_argument("--no-citations",    action="store_true",
-                   help="Tắt extract citations")
     p.add_argument("query", nargs="*")
     return p
+
+
+def _pick_law(kg) -> str | None:
+    """Hỏi user chọn luật từ danh sách đã ingest. Trả về law_id hoặc None (toàn bộ)."""
+    with kg.driver.session() as s:
+        rows = list(s.run(
+            "MATCH (l:LAW) RETURN l.id AS id, l.label AS label ORDER BY l.label"
+        ))
+    laws = [(r["id"], r["label"]) for r in rows]
+    if not laws:
+        print("[warn] Không có luật nào trong Neo4j.")
+        return None
+
+    while True:
+        print("\nChọn luật để tra cứu:")
+        for i, (_, label) in enumerate(laws, 1):
+            print(f"  {i}. {label}")
+        print(f"  {len(laws)+1}. Tất cả luật (không filter)")
+        print(f"  0. Thoát")
+        try:
+            choice = input("Lựa chọn: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return "__exit__"
+        if choice == "0":
+            return "__exit__"
+        if choice.isdigit():
+            n = int(choice)
+            if 1 <= n <= len(laws):
+                return laws[n-1][0]
+            if n == len(laws)+1:
+                return None
+        print("  [!] Lựa chọn không hợp lệ.")
 
 
 def main() -> int:
@@ -474,8 +532,6 @@ def main() -> int:
         device=args.device,
         min_rerank_score=args.min_rerank_score,
         enable_refine=not args.no_refine,
-        enable_faithfulness=not args.no_faithfulness,
-        enable_citations=not args.no_citations,
     )
     try:
         # Single query mode
@@ -489,9 +545,13 @@ def main() -> int:
 
         # REPL mode
         print("\n=== Hybrid RAG Chat ===")
-        if args.law_id:
-            print(f"  Filter: law_id={args.law_id}")
-        print("  Gõ /exit để thoát, /ctx để toggle hiện context")
+        current_law = args.law_id
+        if current_law is None:
+            current_law = _pick_law(service.kg)
+            if current_law == "__exit__":
+                return 0
+        print(f"  Filter: law_id={current_law or '(tất cả)'}")
+        print("  Gõ /exit để thoát, /ctx để toggle context, /law để chọn lại luật")
         print()
 
         show_ctx = args.show_context
@@ -509,9 +569,16 @@ def main() -> int:
                 show_ctx = not show_ctx
                 print(f"  [show_context={show_ctx}]")
                 continue
+            if query.lower() == "/law":
+                picked = _pick_law(service.kg)
+                if picked == "__exit__":
+                    break
+                current_law = picked
+                print(f"  [law_id={current_law or '(tất cả)'}]")
+                continue
 
             try:
-                result = service.answer(query, law_id=args.law_id, top_k=args.top_k)
+                result = service.answer(query, law_id=current_law, top_k=args.top_k)
                 _print_answer_block(result)
                 if show_ctx:
                     _print_context(result)
@@ -529,20 +596,7 @@ def _print_answer_block(result: HybridRAGResult) -> None:
     if refined.get("objective"):
         print(f"[mục tiêu] {refined['objective']}")
 
-    print(f"\n{result.annotated_answer or result.answer}\n")
-
-    if result.citations:
-        matched = sum(1 for c in result.citations if c["matched"])
-        print(f"  citations: {matched}/{len(result.citations)} matched")
-
-    f = result.faithfulness or {}
-    if f.get("total"):
-        ok  = "✓" if f.get("faithful") else "⚠"
-        print(f"  faithfulness {ok}  {f['supported']}/{f['total']}  "
-              f"score={f['score']:.2f}")
-        for issue in f.get("issues", [])[:3]:
-            print(f"    [?] {issue['claim'][:120]}")
-    print()
+    print(f"\n{result.answer}\n")
 
 
 def _print_context(result: HybridRAGResult) -> None:
@@ -558,4 +612,4 @@ def _print_context(result: HybridRAGResult) -> None:
 if __name__ == "__main__":
     raise SystemExit(main())
 
-# python -m backend.services.hybrid_rag_service --law-id LuatAnNinhMang2025
+# python -m backend.services.hybrid_rag_service
