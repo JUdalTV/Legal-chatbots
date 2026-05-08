@@ -41,12 +41,22 @@ except ImportError:
 
 from vector_rag.chunker import LAW_META                # noqa: E402
 from vector_rag.intent  import classify_intent, get_k  # noqa: E402
+try:
+    from backend.services.llm_config import (           # noqa: E402
+        DEFAULT_LLM_ENDPOINT,
+        DEFAULT_LLM_MODEL,
+        get_llm_model,
+    )
+except ImportError:
+    from services.llm_config import (                   # noqa: E402
+        DEFAULT_LLM_ENDPOINT,
+        DEFAULT_LLM_MODEL,
+        get_llm_model,
+    )
 
 
 DEFAULT_QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 DEFAULT_QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
-DEFAULT_LLM_ENDPOINT = os.getenv("LLM_ENDPOINT", "http://localhost:8000/v1/chat/completions")
-DEFAULT_LLM_MODEL    = os.getenv("LLM_MODEL",    "Qwen/Qwen3.5-9B")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -125,6 +135,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
     from vector_rag.pipeline import VectorRAGPipeline
     from vector_rag.prompt_builder import build_rag_prompt
 
+    llm_model = get_llm_model(args.llm_model)
     pipe = VectorRAGPipeline(
         qdrant_host=args.qdrant_host,
         qdrant_port=args.qdrant_port,
@@ -133,7 +144,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
 
     print(f"\n=== Vector RAG Chat ===")
     print(f"  LLM     : {args.llm_endpoint}")
-    print(f"  Model   : {args.llm_model}")
+    print(f"  Model   : {llm_model}")
     if args.law_id:
         print(f"  Filter  : law_id={args.law_id}")
     print(f"  Lệnh    : /exit để thoát, /sources để toggle hiện nguồn")
@@ -167,7 +178,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
             resp = requests.post(
                 args.llm_endpoint,
                 json={
-                    "model":       args.llm_model,
+                    "model":       llm_model,
                     "messages":    messages,
                     "temperature": args.temperature,
                     "max_tokens":  args.max_tokens,
@@ -298,6 +309,9 @@ def main(argv: list[str] | None = None) -> int:
         return handlers[args.command](args)
     except ImportError as e:
         print(f"[main] Thiếu dependency: {e}")
+        return 1
+    except RuntimeError as e:
+        print(f"[main] {e}")
         return 1
     except KeyboardInterrupt:
         print("\n[main] Đã huỷ.")

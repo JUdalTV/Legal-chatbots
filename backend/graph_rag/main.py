@@ -58,14 +58,22 @@ except ImportError:
 from vector_rag.chunker     import LAW_META                    # noqa: E402
 from graph_rag.neo4j_loader import Neo4jKG                     # noqa: E402
 from graph_rag.graph_retriever import GraphRetriever           # noqa: E402
+try:
+    from backend.services.llm_config import (                   # noqa: E402
+        DEFAULT_LLM_ENDPOINT,
+        DEFAULT_LLM_MODEL,
+    )
+except ImportError:
+    from services.llm_config import (                           # noqa: E402
+        DEFAULT_LLM_ENDPOINT,
+        DEFAULT_LLM_MODEL,
+    )
 
 
 # ── Defaults từ env ──────────────────────────────────────────────────
 DEFAULT_NEO4J_URI      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
 DEFAULT_NEO4J_USER     = os.getenv("NEO4J_USER",     "neo4j")
 DEFAULT_NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "12345678")
-DEFAULT_LLM_ENDPOINT   = os.getenv("LLM_ENDPOINT",   "http://100.119.186.48:8000/v1/chat/completions")
-DEFAULT_LLM_MODEL      = os.getenv("LLM_MODEL",      "Qwen/Qwen3.5-9B")
 
 
 # ════════════════════════════════════════════════════════════════════

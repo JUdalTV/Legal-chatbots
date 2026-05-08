@@ -5,10 +5,24 @@ OpenAI-compatible LLM client used by service-level RAG pipelines.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import requests
+
+try:
+    from backend.services.llm_config import (
+        DEFAULT_LLM_API_KEY,
+        DEFAULT_LLM_DISABLE_THINKING,
+        DEFAULT_LLM_ENDPOINT,
+        get_llm_model,
+    )
+except ImportError:
+    from services.llm_config import (
+        DEFAULT_LLM_API_KEY,
+        DEFAULT_LLM_DISABLE_THINKING,
+        DEFAULT_LLM_ENDPOINT,
+        get_llm_model,
+    )
 
 
 class LLMClient:
@@ -20,15 +34,17 @@ class LLMClient:
         model: str | None = None,
         api_key: str | None = None,
         timeout: int = 180,
-        disable_thinking: bool = True,
+        disable_thinking: bool | None = None,
     ):
-        self.endpoint = endpoint or os.getenv(
-            "LLM_ENDPOINT", "http://100.119.186.48:8000/v1/chat/completions"
-        )
-        self.model = model or os.getenv("LLM_MODEL", "Qwen/Qwen3.5-9B")
-        self.api_key = api_key if api_key is not None else os.getenv("LLM_API_KEY", "")
+        self.endpoint = endpoint or DEFAULT_LLM_ENDPOINT
+        self.model = get_llm_model(model)
+        self.api_key = api_key if api_key is not None else DEFAULT_LLM_API_KEY
         self.timeout = timeout
-        self.disable_thinking = disable_thinking
+        self.disable_thinking = (
+            DEFAULT_LLM_DISABLE_THINKING
+            if disable_thinking is None
+            else disable_thinking
+        )
 
     def chat(
         self,
@@ -82,4 +98,3 @@ def _extract_text(data: dict[str, Any]) -> str:
             return reasoning_content
     text = choice.get("text") if isinstance(choice, dict) else None
     return text if isinstance(text, str) else ""
-

@@ -42,6 +42,18 @@ from graph_rag.neo4j_loader import Neo4jKG                              # noqa: 
 from graph_rag.ontology import (                                        # noqa: E402
     ALL_NODE_TYPES, STRUCTURAL_NODES, is_node, edge_attr_role,
 )
+try:
+    from backend.services.llm_config import (                            # noqa: E402
+        DEFAULT_LLM_ENDPOINT,
+        DEFAULT_LLM_MODEL,
+        get_llm_model,
+    )
+except ImportError:
+    from services.llm_config import (                                    # noqa: E402
+        DEFAULT_LLM_ENDPOINT,
+        DEFAULT_LLM_MODEL,
+        get_llm_model,
+    )
 
 
 SO_HIEU_TO_LAW_ID = {meta["so_hieu"]: lid for lid, meta in LAW_META.items()}
@@ -54,8 +66,8 @@ NEO4J_URI      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
 NEO4J_USER     = os.getenv("NEO4J_USER",     "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "12345678")
 
-LLM_ENDPOINT   = os.getenv("LLM_ENDPOINT",   "http://100.119.186.48:8000/v1/chat/completions")
-LLM_MODEL      = os.getenv("LLM_MODEL",      "Qwen/Qwen3.5-9B")
+LLM_ENDPOINT   = DEFAULT_LLM_ENDPOINT
+LLM_MODEL      = DEFAULT_LLM_MODEL
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
@@ -219,6 +231,7 @@ def ingest_docx(file_path: str | Path,
           f"khoan={sum(1 for c in chunks if c.chunk_type == 'khoan')})")
 
     if use_llm:
+        llm_model = get_llm_model(llm_model)
         _ensure_llm_endpoint_available(llm_endpoint)
 
     # ── 2. Setup Neo4j ─────────────────────────────────────────────

@@ -20,7 +20,6 @@ Endpoint: OpenAI-compatible chat/completions (vLLM / llama.cpp / LM Studio).
 from __future__ import annotations
 
 import json
-import os
 import re
 from typing import Optional
 
@@ -28,11 +27,27 @@ import requests
 
 from .ontology import RELATION_CATALOG, EDGE_MODALITY, LOGIC_ROLE_OF, EDGE_GOVERNANCE
 
+try:
+    from backend.services.llm_config import (
+        DEFAULT_LLM_API_KEY,
+        DEFAULT_LLM_DISABLE_THINKING,
+        DEFAULT_LLM_ENDPOINT,
+        DEFAULT_LLM_MODEL,
+        get_llm_model,
+    )
+except ImportError:
+    from services.llm_config import (
+        DEFAULT_LLM_API_KEY,
+        DEFAULT_LLM_DISABLE_THINKING,
+        DEFAULT_LLM_ENDPOINT,
+        DEFAULT_LLM_MODEL,
+        get_llm_model,
+    )
 
-DEFAULT_ENDPOINT = "http://100.119.186.48:8000/v1/chat/completions"
-DEFAULT_MODEL    = "Qwen/Qwen3.5-9B"
+DEFAULT_ENDPOINT = DEFAULT_LLM_ENDPOINT
+DEFAULT_MODEL    = DEFAULT_LLM_MODEL
 DEFAULT_TIMEOUT  = 120
-DEFAULT_DISABLE_THINKING = os.getenv("LLM_DISABLE_THINKING", "1").lower() not in {"0", "false", "no"}
+DEFAULT_DISABLE_THINKING = DEFAULT_LLM_DISABLE_THINKING
 
 
 # ── Prompt ────────────────────────────────────────────────────────────
@@ -245,16 +260,16 @@ def _validate_edges(raw_edges: list[dict],
 # ── Main class ────────────────────────────────────────────────────────
 class LlmRelationExtractor:
     def __init__(self,
-                 endpoint: str = DEFAULT_ENDPOINT,
-                 model:    str = DEFAULT_MODEL,
+                 endpoint: Optional[str] = None,
+                 model:    Optional[str] = None,
                  api_key:  Optional[str] = None,
                  timeout:  int = DEFAULT_TIMEOUT,
                  temperature: float = 0.0,
                  max_tokens:  int = 4096,
                  disable_thinking: bool = DEFAULT_DISABLE_THINKING):
-        self.endpoint    = endpoint
-        self.model       = model
-        self.api_key     = api_key
+        self.endpoint    = endpoint or DEFAULT_ENDPOINT
+        self.model       = get_llm_model(model)
+        self.api_key     = DEFAULT_LLM_API_KEY if api_key is None else api_key
         self.timeout     = timeout
         self.temperature = temperature
         self.max_tokens  = max_tokens
