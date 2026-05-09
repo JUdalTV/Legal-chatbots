@@ -94,7 +94,7 @@ class HybridRAGService:
         law_id: str | None = None,
         top_k: int | None = None,
         min_rerank_score: float | None = None,
-        temperature: float = 0.1,
+        temperature: float = 0.2,
         max_tokens: int = 2048,
     ) -> HybridRAGResult:
         # ── Step 1: tinh chỉnh query (intent-aware, law-locked nếu có) ──

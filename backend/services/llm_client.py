@@ -61,7 +61,7 @@ class LLMClient:
             "max_tokens": max_tokens,
         }
         if self.disable_thinking:
-            payload["chat_template_kwargs"] = {"enable_thinking": False}
+            payload["chat_template_kwargs"] = {"enable_thinking": True}
         if extra_payload:
             payload.update(extra_payload)
 
