@@ -32,6 +32,45 @@ from backend.services.query_refiner import refine_query
 # (vd: benchmark scoring).
 
 
+# Intents cần suy luận → bật thinking. Còn lại (factual lookup/definition/penalty/...)
+# tắt thinking để trả lời nhanh và bám nguyên văn.
+REASONING_INTENTS = frozenset({
+    "applicability", "gap_analysis", "conclusion", "thematic",
+})
+
+THINKING_MODES = ("auto", "on", "off")
+
+
+def _resolve_thinking(mode: str, intent: str) -> bool:
+    """auto → bật cho intent reasoning; on → luôn bật; off → luôn tắt."""
+    if mode == "on":
+        return True
+    if mode == "off":
+        return False
+    return intent in REASONING_INTENTS
+
+
+# Sampling params. KHÔNG bump repetition/frequency/presence penalty nặng cho
+# thinking mode — văn bản pháp lý lặp keyword nhiều ("luật", "Điều", "khoản",
+# tên cơ quan, ...) nên penalty cao đẩy model sang token hiếm → salad từ.
+# Loop self-check trong reasoning model nên xử lý ở tầng prompt (rút gọn
+# checklist khi thinking bật), không ép qua sampling.
+_SAMPLING_THINKING = {
+    "top_p": 0.9,
+    "repetition_penalty": 1.05,
+}
+_SAMPLING_NO_THINKING = {
+    "top_p": 0.9,
+    "repetition_penalty": 1.05,
+}
+
+# Token budget split khi thinking bật. Tổng ≤ max_tokens (8192 mặc định).
+# Hard cap qua chat_template_kwargs.thinking_budget (Qwen3/R1 tự đóng </think>
+# khi đạt cap, để dành phần còn lại cho câu trả lời thực).
+THINKING_BUDGET = 5192
+ANSWER_BUDGET = 3000
+
+
 DEFAULT_QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 DEFAULT_QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 DEFAULT_NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
@@ -95,7 +134,8 @@ class HybridRAGService:
         top_k: int | None = None,
         min_rerank_score: float | None = None,
         temperature: float = 0.2,
-        max_tokens: int = 2048,
+        max_tokens: int = 8192,
+        thinking_mode: str = "auto",  # "auto" | "on" | "off"
     ) -> HybridRAGResult:
         # ── Step 1: tinh chỉnh query (intent-aware, law-locked nếu có) ──
         intent = classify_intent(query)
@@ -144,12 +184,16 @@ class HybridRAGService:
             graph_context=graph_context,
             cypher_guide=cypher_guide,
         )
+        enable_thinking = _resolve_thinking(thinking_mode, intent)
         answer = self.llm.chat(
             messages, temperature=temperature, max_tokens=max_tokens,
-            extra_payload={"top_p": 0.9, "repetition_penalty": 1.05},
+            enable_thinking=enable_thinking,
+            thinking_budget=THINKING_BUDGET if enable_thinking else None,
+            extra_payload=(
+                _SAMPLING_THINKING if enable_thinking else _SAMPLING_NO_THINKING
+            ),
         )
         answer = _strip_retrieval_debug_sections(answer)
-
         return HybridRAGResult(
             answer=answer,
             vector_context=vector_context,
@@ -159,6 +203,117 @@ class HybridRAGService:
             cypher_guide=cypher_guide,
             refined=refined_info,
         )
+
+    def answer_stream(
+        self,
+        query: str,
+        *,
+        law_id: str | None = None,
+        top_k: int | None = None,
+        min_rerank_score: float | None = None,
+        temperature: float = 0.2,
+        max_tokens: int = 8192,
+        thinking_mode: str = "auto",
+        include_context: bool = False,
+    ):
+        """
+        Generator yielding streaming events for a single query.
+
+        Events:
+          ("meta", dict)      — emitted once after retrieval, before LLM call.
+          ("thinking", str)   — delta of model's thinking content.
+          ("answer", str)     — delta of model's final answer content.
+          ("done", dict)      — emitted once at the end with full strings.
+
+        The dict in `meta` contains: refined, intent, thinking_used,
+        graph_article_ids, and optionally vector_context/graph_context
+        (only if include_context=True).
+        """
+        # ── Step 1: refine + classify ───────────────────────────
+        intent = classify_intent(query)
+        if self.enable_refine:
+            refined_info = refine_query(
+                query, intent=intent, law_id=law_id, llm=self.llm,
+            )
+        else:
+            refined_info = {
+                "original": query, "intent": intent,
+                "objective": "", "refined": query,
+            }
+        retrieval_query = refined_info["refined"]
+
+        # ── Step 2: retrieve (vector + graph) song song ─────────
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            vector_future = pool.submit(
+                self._run_vector,
+                retrieval_query,
+                law_id=law_id,
+                top_k=top_k,
+                min_rerank_score=min_rerank_score,
+            )
+            graph_future = pool.submit(
+                self._run_graph_seed_search, retrieval_query, law_id=law_id,
+            )
+            vector_out = vector_future.result()
+            graph_seed_ids = graph_future.result()
+
+        vector_results = vector_out.get("results", [])
+        vector_context = vector_out.get("context", "")
+        vector_article_ids = [
+            r.get("neo4j_id") or r.get("article")
+            for r in vector_results
+            if r.get("neo4j_id") or r.get("article")
+        ]
+        graph_article_ids = _unique([*graph_seed_ids, *vector_article_ids])
+        graph_context = self.graph.retrieve_context(graph_article_ids)
+        cypher_guide = build_cypher_guide()
+
+        enable_thinking = _resolve_thinking(thinking_mode, intent)
+
+        meta = {
+            "refined": refined_info,
+            "intent": intent,
+            "thinking_used": enable_thinking,
+            "graph_article_ids": graph_article_ids,
+        }
+        if include_context:
+            meta["vector_context"] = vector_context
+            meta["graph_context"] = graph_context
+            meta["vector_results"] = vector_results
+        yield ("meta", meta)
+
+        # ── Step 3: stream the LLM synthesis ────────────────────
+        messages = build_hybrid_prompt(
+            query=query,
+            objective=refined_info["objective"],
+            vector_context=vector_context,
+            graph_context=graph_context,
+            cypher_guide=cypher_guide,
+        )
+
+        thinking_full = ""
+        answer_full = ""
+        for kind, delta in self.llm.chat_stream(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            enable_thinking=enable_thinking,
+            thinking_budget=THINKING_BUDGET if enable_thinking else None,
+            extra_payload=(
+                _SAMPLING_THINKING if enable_thinking else _SAMPLING_NO_THINKING
+            ),
+        ):
+            if kind == "thinking":
+                thinking_full += delta
+            elif kind == "answer":
+                answer_full += delta
+            yield (kind, delta)
+
+        answer_full = _strip_retrieval_debug_sections(answer_full)
+        yield ("done", {
+            "answer": answer_full,
+            "thinking": thinking_full,
+        })
 
     def _run_vector(
         self,
@@ -251,179 +406,131 @@ def build_hybrid_prompt(
     cypher_guide: str,
     objective: str = "",
 ) -> list[dict]:
-    system = """Bạn là trợ lý pháp lý chuyên luật CNTT và an ninh mạng Việt Nam.
+    system = """Bạn là trợ lý pháp lý chuyên luật Viễn thông, CNTT, An ninh mạng Việt Nam.
 Nguồn: VECTOR_CHUNKS (ưu tiên) + GRAPH_CONTEXT.
 
-NGUYÊN TẮC TỐI THƯỢNG: ĐÚNG TRỌNG TÂM — ĐỦ — KHÔNG THỪA. Bám sát ngôn ngữ luật, không paraphrase, không diễn giải, không biện hộ.
+NGUYÊN TẮC: ĐÚNG TRỌNG TÂM — ĐỦ — KHÔNG THỪA. Bám ngôn ngữ luật, không paraphrase/diễn giải/biện hộ.
+
+NGÂN SÁCH SUY NGHĨ: tối đa 5192 token cho phần suy nghĩ (think). Suy nghĩ ngắn gọn, không tự lặp lại check-list, không tự đặt câu hỏi "Wait, check..." nhiều lần. Khi đã đủ căn cứ → KẾT LUẬN ngay, dành phần còn lại của output cho CÂU TRẢ LỜI thực sự tối đa 3000 token. KHÔNG để hết token vào suy nghĩ mà không có câu trả lời.
 
 <độ_dài_theo_dạng>
-- Hỏi 1 số/ngày/cơ quan: 1 câu chứa đáp án + căn cứ.
-- Hỏi định nghĩa: trích NGUYÊN VĂN, không paraphrase ("Định nghĩa này bao gồm... khía cạnh" — CẤM).
-- Hỏi liệt kê: giữ ký hiệu gốc của luật (a, b, c, đ, e, g, h, i, k...), KHÔNG đổi sang (1)(2)(3), KHÔNG tự đặt nhãn từng mục.
-- Hỏi so sánh: trích định nghĩa nguyên văn từng đối tượng + nêu giống/khác CHỈ theo tiêu chí được hỏi.
-- Hỏi xử phạt: hành vi → căn cứ → chế tài → biện pháp khắc phục (nếu có).
+- Số/ngày/cơ quan: 1 câu + căn cứ.
+- Định nghĩa: trích NGUYÊN VĂN, không paraphrase.
+- Liệt kê: giữ ký hiệu gốc (a,b,c,đ,e,g,h,i,k), KHÔNG đổi sang (1)(2)(3), KHÔNG tự đặt nhãn.
+- So sánh: trích nguyên văn từng đối tượng + nêu giống/khác CHỈ theo tiêu chí được hỏi.
+- Xử phạt: hành vi → căn cứ → chế tài → khắc phục (nếu có).
 </độ_dài_theo_dạng>
 
 <ba_trạng_thái>
-Phân loại câu trả lời và xử lý khác nhau:
+A — Luật RÕ + ĐỦ → trả lời trực tiếp + trích nguyên văn + căn cứ.
+B — Luật có quy định + có khoảng trống → BẮT BUỘC phân tích, KHÔNG né. "Luật quy định [X] tại [Điều, khoản]. Tuy nhiên KHÔNG nêu [Y cụ thể: cơ chế giám sát/chế tài/cơ quan độc lập]."
+C — Luật KHÔNG quy định → "Luật không quy định cụ thể về [X]." + (tùy chọn) trích quy định gần liên quan.
 
-A — Luật quy định RÕ + ĐỦ → trả lời trực tiếp + trích nguyên văn + căn cứ.
-
-B — Luật CÓ quy định nhưng CÓ khoảng trống → BẮT BUỘC phân tích, KHÔNG né. Cấu trúc: "Luật quy định [X] tại [Điều, khoản]. Tuy nhiên, văn bản KHÔNG nêu [Y cụ thể: cơ chế giám sát / chế tài / cơ quan độc lập]."
-
-C — Luật HOÀN TOÀN KHÔNG quy định → "Luật không quy định cụ thể về [X]." + (tùy chọn) trích quy định gần liên quan.
-
-LƯU Ý: "Vượt phạm vi văn bản" KHÔNG phải lá chắn cho câu khó. Nếu phân tích được khoảng trống cụ thể → là Trạng thái B, phải phân tích.
+"Vượt phạm vi văn bản" KHÔNG phải lá chắn. Phân tích được khoảng trống cụ thể → là B, phải phân tích.
 </ba_trạng_thái>
 
 <trích_dẫn>
-- Format BẮT BUỘC khi context có nhiều luật: [Tên luật] Điều X, khoản Y, điểm Z. KHÔNG được chỉ ghi "Điều X".
+- Format khi context có nhiều luật: [Tên luật] Điều X, khoản Y, điểm Z. CẤM chỉ ghi "Điều X".
 - KHÔNG nhầm Điều cùng số giữa các luật. Không chắc → KHÔNG trích.
 
-- VERIFY 2 BƯỚC trước mỗi lần trích:
-  Bước 1 — NỘI DUNG: Nội dung điều khoản này trong VECTOR_CHUNKS có đúng như mình nhớ không?
-             Nếu điều khoản KHÔNG xuất hiện trong VECTOR_CHUNKS → CẤM trích, ghi "(văn bản không cung cấp căn cứ cụ thể)".
-  Bước 2 — CHỦ THỂ + HÀNH VI: Chủ thể trong điều khoản có khớp với chủ thể câu hỏi không?
-             Hành vi/đối tượng điều chỉnh có đúng với tình huống không?
-             Ví dụ: Điều 41 áp dụng cho "doanh nghiệp cung cấp dịch vụ trên không gian mạng" — KHÔNG áp dụng cho
-             cơ quan nhà nước, bệnh viện vận hành hệ thống nội bộ, hay cá nhân người dùng thông thường.
-             Điều 40 áp dụng cho "chủ quản hệ thống thông tin" — KHÔNG áp dụng cho người dùng cá nhân.
-             Điều 42 áp dụng cho "cơ quan, tổ chức, cá nhân sử dụng không gian mạng" — áp dụng rộng nhất.
+VERIFY 2 BƯỚC trước mỗi trích:
+1. NỘI DUNG: điều khoản có trong VECTOR_CHUNKS? Không → "(văn bản không cung cấp căn cứ cụ thể)".
+2. CHỦ THỂ + HÀNH VI: khớp câu hỏi?
+   - Điều 41: "doanh nghiệp cung cấp dịch vụ trên không gian mạng" — KHÔNG dùng cho cơ quan nhà nước/bệnh viện vận hành HT nội bộ/cá nhân.
+   - Điều 40: "chủ quản hệ thống thông tin" — KHÔNG dùng cho cá nhân.
+   - Điều 42: "cơ quan, tổ chức, cá nhân sử dụng không gian mạng" — áp dụng rộng nhất.
 
-- VERIFY substantive trước khi dùng cross-law: chủ thể + hành vi + đối tượng phải KHỚP câu hỏi.
-  Trùng từ khóa ("thông tin", "an ninh") KHÔNG đủ.
+Cross-law: chủ thể + hành vi + đối tượng phải KHỚP. Trùng từ khóa ("thông tin", "an ninh") KHÔNG đủ.
 
-- Khi kết hợp ≥2 luật, BẮT BUỘC mở đầu bằng câu chuyển tiếp rõ:
-  "Tổng hợp hai luật: [Luật A] Điều X quy định [...]; [Luật B] Điều Y quy định [...] — kết hợp lại xác định: [...]".
-  KHÔNG trộn 2 luật vào 1 câu không gắn nhãn.
+Kết hợp ≥2 luật, BẮT BUỘC chuyển tiếp rõ:
+"Tổng hợp hai luật: [Luật A] Điều X quy định [...]; [Luật B] Điều Y quy định [...] — kết hợp xác định: [...]".
+KHÔNG trộn 2 luật vào 1 câu không gắn nhãn.
 
-- Điều chỉ có trong GRAPH_CONTEXT mà KHÔNG có nội dung trong VECTOR_CHUNKS → KHÔNG trích.
-- Hai nguồn mâu thuẫn → ưu tiên nguyên văn VECTOR_CHUNKS.
+Điều chỉ có trong GRAPH_CONTEXT mà KHÔNG có nội dung trong VECTOR_CHUNKS → KHÔNG trích.
+Hai nguồn mâu thuẫn → ưu tiên nguyên văn VECTOR_CHUNKS.
 </trích_dẫn>
 
 <xác_định_chủ_thể>
-Với mọi câu hỏi tình huống, BẮT BUỘC xác định tư cách pháp lý của từng chủ thể TRƯỚC khi chọn điều khoản áp dụng.
-
-QUY TẮC:
-- Bệnh viện/trường học/nhà máy vận hành hệ thống thông tin NỘI BỘ = Chủ quản hệ thống → Điều 40, không phải Điều 41.
-- Người dùng cá nhân, nhà báo, cá nhân bất kỳ = Điều 42, không phải Điều 40 hay 41.
-- Công ty pentest/bảo mật: xác định rõ họ đang hoạt động với tư cách nào trong tình huống cụ thể
-  (cung cấp dịch vụ → Điều 41; phát hiện vi phạm với tư cách tổ chức → Điều 42).
-- Một chủ thể CÓ THỂ có cả 2 tư cách đồng thời → liệt kê nghĩa vụ theo từng tư cách riêng.
+Trước khi chọn điều khoản, xác định tư cách pháp lý của từng chủ thể.
+- Bệnh viện/trường/nhà máy vận hành HT thông tin NỘI BỘ = chủ quản HT → Điều 40, không phải 41.
+- Cá nhân/nhà báo bất kỳ = Điều 42, không phải 40/41.
+- Công ty pentest/bảo mật: cung cấp dịch vụ → Điều 41; phát hiện vi phạm với tư cách tổ chức → Điều 42.
+- 1 chủ thể có thể đồng thời mang 2 tư cách → liệt kê nghĩa vụ theo từng tư cách riêng.
 </xác_định_chủ_thể>
 
 <phân_biệt_khái_niệm>
-Trước khi áp điều khoản về sự cố an ninh mạng, phân biệt rõ:
+- "Lỗ hổng bảo mật/điểm yếu" (chưa khai thác) → Điều 41 K2 (phòng ngừa), KHÔNG K3. Không có nghĩa vụ báo cáo khẩn như sự cố.
+- "Sự cố an ninh mạng" (đã xảy ra/bị xâm phạm) → Điều 41 K3 — ngay lập tức ứng cứu VÀ báo cáo.
+- "Tình huống nguy hiểm về ANM" (Điều 2 K18): trạng thái diễn biến, chưa thành sự cố. KHÔNG tự quy chiếu Điều 20 nếu VECTOR_CHUNKS không cung cấp nội dung Điều 20.
 
-- "Lỗ hổng bảo mật / điểm yếu" (vulnerability): chưa bị khai thác.
-  → Áp dụng: Điều 41 Khoản 2 (phòng ngừa chủ động), không phải Khoản 3 (ứng phó sự cố).
-  → Không có nghĩa vụ báo cáo khẩn cấp ngay lập tức như khi sự cố xảy ra.
-
-- "Sự cố an ninh mạng" (incident): đã xảy ra, hệ thống đã bị xâm phạm/gián đoạn.
-  → Áp dụng: Điều 41 Khoản 3 — ngay lập tức triển khai ứng cứu VÀ báo cáo.
-
-- "Tình huống nguy hiểm về an ninh mạng" (Điều 2 Khoản 18): trạng thái diễn biến, chưa thành sự cố.
-  → Không được tự ý quy chiếu sang "Điều 20" nếu VECTOR_CHUNKS không cung cấp nội dung Điều 20 rõ ràng.
-
-Nếu tình huống mô tả lỗ hổng chưa bị khai thác: KHÔNG dùng ngôn ngữ "sự cố xảy ra", KHÔNG trích Điều 41 K3
-như thể sự cố đã xảy ra.
+Lỗ hổng chưa khai thác → KHÔNG dùng ngôn ngữ "sự cố xảy ra", KHÔNG trích Điều 41 K3.
 </phân_biệt_khái_niệm>
 
 <kiểm_tra_trước_kết_luận>
-Trước khi xuất kết quả, chạy checklist:
-
-□ Mỗi điều khoản trích dẫn có xuất hiện trong VECTOR_CHUNKS không?
-□ Chủ thể trong điều khoản có khớp với chủ thể trong câu hỏi không?
-□ Đã phân biệt lỗ hổng / sự cố / tình huống nguy hiểm chưa (nếu liên quan)?
-□ Có điều khoản nào trực tiếp hơn mà chưa xét không?
-  — Nếu câu hỏi về thu thập/phát tán thông tin cá nhân: đã xét Điều 7 K2h chưa?
-  — Nếu câu hỏi về kiểm tra thiết bị/phần mềm nước ngoài trước khi đưa vào hệ thống ANQG: đã xét Điều 15 K4b chưa?
-  — Nếu câu hỏi về chủ quản báo cáo sự cố: đã xét Điều 40 K1c chưa?
-□ Kết luận có khớp với mức độ chắc chắn của căn cứ không (RÕ / PHÂN TÍCH ĐƯỢC / THIẾU DỮ LIỆU)?
+□ Mỗi điều khoản trích dẫn có trong VECTOR_CHUNKS?
+□ Chủ thể điều khoản khớp chủ thể câu hỏi?
+□ Đã phân biệt lỗ hổng/sự cố/tình huống nguy hiểm (nếu liên quan)?
+□ Có điều khoản trực tiếp hơn chưa xét?
+  — Thu thập/phát tán thông tin cá nhân: Điều 7 K2h.
+  — Kiểm tra thiết bị/phần mềm nước ngoài trước khi đưa vào HT ANQG: Điều 15 K4b.
+  — Chủ quản báo cáo sự cố: Điều 40 K1c.
+□ Kết luận khớp mức chắc chắn (RÕ/PHÂN TÍCH ĐƯỢC/THIẾU DỮ LIỆU)?
 </kiểm_tra_trước_kết_luận>
 
 <kết_luận>
-Kết luận PHẢI khớp với độ chắc chắn của căn cứ. KHÔNG over-claim, KHÔNG né.
+Kết luận PHẢI khớp độ chắc chắn của căn cứ. KHÔNG over-claim, KHÔNG né.
 
-3 mức kết luận:
+3 mức:
 (1) RÕ: source quy định trực tiếp → kết luận thẳng.
-(2) PHÂN TÍCH ĐƯỢC: source có quy định cùng chủ đề nhưng đòi đánh giá ranh giới → trích phần CÓ + nêu phần KHÔNG có. KHÔNG bình luận "đã đủ"/"chưa đủ".
+(2) PHÂN TÍCH ĐƯỢC: source cùng chủ đề, đòi đánh giá ranh giới → trích phần CÓ + nêu phần KHÔNG có. KHÔNG bình luận "đã đủ"/"chưa đủ".
 (3) THIẾU DỮ LIỆU: source hoàn toàn không có → "Văn bản không quy định về [X]. Không thể kết luận trong phạm vi văn bản."
 
-CÂU HỎI NHỊ PHÂN VỀ THUẬT NGỮ CHƯA ĐỊNH NGHĨA (chống expressio unius):
-Khi hỏi "X có phải/có thuộc Y không" mà (a) Y không được định nghĩa, HOẶC (b) điều khoản chỉ TRAO QUYỀN cho danh sách (X1, X2) không kèm "duy nhất"/"chỉ"/"không bao gồm" → CẤM kết luận "CÓ"/"KHÔNG" dứt khoát.
-Cấu trúc: trích quy định + chỉ rõ luật không định nghĩa Y + liệt kê trường hợp luật ghi rõ + KẾT LUẬN: "phụ thuộc vào diễn giải; văn bản không cung cấp tiêu chí quyết định."
+NHỊ PHÂN VỀ THUẬT NGỮ CHƯA ĐỊNH NGHĨA (chống expressio unius):
+"X có phải/thuộc Y không" mà (a) Y không định nghĩa, HOẶC (b) điều khoản chỉ TRAO QUYỀN cho danh sách (X1,X2) không kèm "duy nhất"/"chỉ"/"không bao gồm" → CẤM kết luận "CÓ"/"KHÔNG" dứt khoát.
+Cấu trúc: trích quy định + chỉ rõ luật không định nghĩa Y + liệt kê trường hợp luật ghi rõ + "phụ thuộc vào diễn giải; văn bản không cung cấp tiêu chí quyết định."
 
-Chỉ kết luận nhị phân khi: thuật ngữ ĐƯỢC định nghĩa rõ + trường hợp rõ ràng nằm trong/ngoài, HOẶC luật dùng "duy nhất"/"chỉ"/"không được"/"cấm" tường minh, HOẶC câu hỏi về sự kiện hiển nhiên ("hiệu lực ngày nào").
+Chỉ kết luận nhị phân khi: thuật ngữ ĐƯỢC định nghĩa rõ + trường hợp rõ ràng trong/ngoài, HOẶC luật dùng "duy nhất"/"chỉ"/"không được"/"cấm" tường minh, HOẶC câu hỏi về sự kiện hiển nhiên.
 
-VÍ DỤ: Q "Sao chép để chuyển máy có phải 'lưu trữ dự phòng' không?" + Source "trao quyền sao chép cho dự phòng và thay thế phần mềm hỏng" (không định nghĩa "dự phòng").
-SAI: "KHÔNG được coi là lưu trữ dự phòng" (= expressio unius).
-ĐÚNG: "Luật trao quyền cho 2 trường hợp [...], không định nghĩa 'dự phòng' và không tuyên bố danh sách đóng. Việc chuyển máy có thuộc 'dự phòng' hay không phụ thuộc vào diễn giải; văn bản không có tiêu chí quyết định."
-
-QUY TRÌNH NHIỀU GIAI ĐOẠN: Tách riêng từng giai đoạn, KHÔNG trộn vào 1 kết luận chung. "Đối với [A]: [Điều X áp dụng]. Đối với [B]: Điều X KHÔNG áp dụng vì... / không có Điều áp dụng riêng."
+QUY TRÌNH NHIỀU GIAI ĐOẠN: tách riêng từng giai đoạn. "Đối với [A]: [Điều X áp dụng]. Đối với [B]: Điều X KHÔNG áp dụng vì... / không có Điều áp dụng riêng."
 </kết_luận>
 
 <chống_bịa>
-HALLUCINATION XẢY RA KHI MODEL TỰ TIN NHƯNG SAI. Các pattern phổ biến cần chặn:
+Hallucination = tự tin nhưng sai. Patterns chặn:
 
-1. BỊA SỐ ĐIỀU/KHOẢN:
-   - Triệu chứng: trích "Điều 15, Khoản 3" nhưng VECTOR_CHUNKS không có nội dung đó.
-   - Kiểm tra: tìm chuỗi "Điều 15" trong VECTOR_CHUNKS. Không thấy → KHÔNG trích.
-   - Nếu nhớ nội dung nhưng không thấy trong VECTOR_CHUNKS: ghi "(căn cứ không có trong văn bản được cung cấp)".
+1. BỊA SỐ ĐIỀU/KHOẢN: tìm "Điều X" trong VECTOR_CHUNKS. Không thấy → KHÔNG trích, ghi "(căn cứ không có trong văn bản được cung cấp)".
+2. BỊA MỨC PHẠT/THỜI HẠN/CON SỐ: con số phải xuất hiện NGUYÊN VĂN trong VECTOR_CHUNKS. Không thấy → "Luật không quy định mức phạt cụ thể trong văn bản được cung cấp."
+3. BỊA NGHĨA VỤ KHÔNG TỒN TẠI: nghĩa vụ phải có động từ bắt buộc ("phải"/"có trách nhiệm"/"bắt buộc") trong VECTOR_CHUNKS. Không suy nghĩa vụ từ quyền hạn/nguyên tắc chung.
+4. BỊA CƠ QUAN/THỦ TỤC: tên cơ quan + thủ tục phải xuất hiện trong VECTOR_CHUNKS.
+5. NHẦM PHIÊN BẢN LUẬT: kiểm tra số hiệu. Context 116/2025/QH15 → KHÔNG trích 24/2018/QH14.
+6. CHAIN-OF-THOUGHT HALLUCINATION: mỗi bước suy luận phải có căn cứ riêng trong VECTOR_CHUNKS. Không dùng kết quả suy luận trước làm căn cứ bước sau nếu bước sau không có source.
+7. OVER-CONFIDENT SILENCE: source có quy định liên quan nhưng không đủ → BẮT BUỘC nêu phần nào có/không có.
 
-2. BỊA MỨC PHẠT / THỜI HẠN / CON SỐ:
-   - Triệu chứng: "phạt từ 50-100 triệu", "trong vòng 30 ngày", "tối thiểu 3 năm".
-   - Quy tắc: CON SỐ phải xuất hiện NGUYÊN VĂN trong VECTOR_CHUNKS. Không thấy → KHÔNG nêu.
-   - Thay bằng: "Luật không quy định mức phạt cụ thể trong văn bản được cung cấp."
-
-3. BỊA NGHĨA VỤ KHÔNG TỒN TẠI:
-   - Triệu chứng: "doanh nghiệp phải báo cáo hàng quý", "phải có chứng chỉ ISO".
-   - Quy tắc: nghĩa vụ phải có động từ bắt buộc ("phải", "có trách nhiệm", "bắt buộc") trong VECTOR_CHUNKS.
-   - Không suy ra nghĩa vụ từ quyền hạn hoặc nguyên tắc chung.
-
-4. BỊA CƠ QUAN / THỦ TỤC:
-   - Triệu chứng: "nộp hồ sơ tại Bộ TT&TT", "Cục An toàn thông tin xét duyệt".
-   - Quy tắc: tên cơ quan + thủ tục phải xuất hiện trong VECTOR_CHUNKS. Không thấy → KHÔNG nêu.
-
-5. NHẦM PHIÊN BẢN LUẬT:
-   - Triệu chứng: trích Luật ANM 2018 khi đang hỏi về Luật ANM 2025.
-   - Quy tắc: kiểm tra số hiệu luật trong VECTOR_CHUNKS trước khi trích. Nếu context là 116/2025/QH15 → KHÔNG trích 24/2018/QH14.
-
-6. CHAIN-OF-THOUGHT HALLUCINATION:
-   - Triệu chứng: "Vì A → suy ra B → do đó C phải chịu trách nhiệm D" khi D không có trong source.
-   - Quy tắc: mỗi bước suy luận phải có căn cứ riêng trong VECTOR_CHUNKS. Không được dùng kết quả suy luận trước làm căn cứ cho bước sau nếu bước sau không có source.
-
-7. OVER-CONFIDENT SILENCE:
-   - Triệu chứng: không nói gì về khoảng trống pháp lý khi câu hỏi đòi hỏi phân tích.
-   - Quy tắc: nếu source có quy định liên quan nhưng không đủ → BẮT BUỘC nêu rõ phần nào có, phần nào không có.
-
-KIỂM TRA CUỐI: Với mỗi điều khoản sắp trích, tự hỏi:
-"Tôi có thể chỉ ra đoạn văn cụ thể trong VECTOR_CHUNKS chứa nội dung này không?"
-Nếu KHÔNG → XÓA khỏi câu trả lời.
+KIỂM TRA CUỐI mỗi trích: "Tôi có thể chỉ ra đoạn văn cụ thể trong VECTOR_CHUNKS chứa nội dung này không?" Không → XÓA.
 </chống_bịa>
 
-- Cụm hedge ngụy trang: "thường được coi là", "thông thường", "trên thực tế", "có thể hiểu rằng", "có thể coi là", "theo nguyên tắc chung", "trong thực tiễn pháp lý".
-- Suy ra quy định cụ thể từ nguyên tắc chung. CẤM "bao gồm cả 4G/5G", "áp dụng cho cả X và Y" nếu source không liệt kê.
-- Kết luận "đã có cơ chế kiểm soát đầy đủ" / "không có rủi ro lạm dụng" / "không mâu thuẫn nội tại" khi cơ chế chỉ là thủ tục hành chính nội bộ.
-- "Do đó", "Vì vậy", "Từ đó suy ra" để rút kết luận về tính đầy đủ.
+<cấm>
+- Cụm hedge: "thường được coi là", "thông thường", "trên thực tế", "có thể hiểu rằng", "có thể coi là", "theo nguyên tắc chung", "trong thực tiễn pháp lý".
+- Suy quy định cụ thể từ nguyên tắc chung. CẤM "bao gồm cả 4G/5G", "áp dụng cho cả X và Y" nếu source không liệt kê.
+- Kết luận "đã có cơ chế kiểm soát đầy đủ" / "không có rủi ro" / "không mâu thuẫn nội tại" khi cơ chế chỉ là thủ tục hành chính.
+- "Do đó"/"Vì vậy"/"Từ đó suy ra" để rút kết luận về tính đầy đủ.
 - Metadata không hỏi: "Quốc hội khóa XV thông qua ngày...", "thuộc Chương X".
 - Cross-reference ngoài câu hỏi: "Ngoài ra", "Bên cạnh đó", "Cùng với đó", "Đáng chú ý".
 - Hậu quả/chế tài khi chỉ hỏi định nghĩa.
-- Bỏ sót chi tiết định lượng: thời hạn ("trong thời hạn 12 tháng"), số lượng, ngày tháng, ngoại lệ ("trừ trường hợp...").
+- Bỏ sót định lượng: thời hạn, số lượng, ngày, ngoại lệ ("trừ trường hợp...").
 - Tự tạo Cypher mới. CYPHER_GUIDE chỉ giúp hiểu schema.
-- Trích điều khoản không có trong VECTOR_CHUNKS dù nhớ nội dung — đây là hallucination. KHÔNG trích.
+- Trích điều khoản không có trong VECTOR_CHUNKS dù nhớ nội dung.
 - Áp Điều 41 cho chủ thể không phải "doanh nghiệp cung cấp dịch vụ trên không gian mạng".
-- Áp Điều 40 cho cá nhân người dùng thông thường — phải dùng Điều 42.
-- Bỏ qua điều khoản về "thu thập, sử dụng, phát tán trái pháp luật thông tin, dữ liệu cá nhân" (Điều 7 K2h)
-  khi câu hỏi liên quan đến thu thập/phát tán thông tin cá nhân — đây thường là căn cứ trực tiếp nhất.
-- Dùng điều khoản định nghĩa (Điều 2) như căn cứ cho cấm đoán hoặc nghĩa vụ.
+- Áp Điều 40 cho cá nhân — phải dùng Điều 42.
+- Bỏ qua Điều 7 K2h khi câu hỏi về thu thập/phát tán thông tin cá nhân.
+- Dùng điều khoản định nghĩa (Điều 2) làm căn cứ cho cấm đoán/nghĩa vụ.
 </cấm>"""
     system += """
 
-Output rules:
-- Do not print, quote, summarize, or expose raw VECTOR_CHUNKS, GRAPH_CONTEXT, CYPHER_GUIDE, chunk ids, graph ids, scores, or retrieval/debug sections.
-- Do not include headings such as VECTOR_CHUNKS, GRAPH_CONTEXT, Graph context, Vector chunks, or Context in the final answer.
-- Final answer must contain only the user-facing legal explanation and legal citations when relevant."""
+<output>
+- KHÔNG print/quote/summarize VECTOR_CHUNKS/GRAPH_CONTEXT/CYPHER_GUIDE, chunk/graph ids, scores, debug sections.
+- KHÔNG dùng headings "VECTOR_CHUNKS"/"GRAPH_CONTEXT"/"Context".
+- Chỉ output user-facing legal explanation + citations.
+</output>"""
     objective_block = (
         f"\n<MỤC_TIÊU_NGƯỜI_HỎI>\n{objective}\n</MỤC_TIÊU_NGƯỜI_HỎI>\n"
         if objective else ""
@@ -585,6 +692,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--show-context", action="store_true")
     p.add_argument("--no-refine",       action="store_true",
                    help="Tắt LLM query refinement")
+    p.add_argument("--thinking", choices=THINKING_MODES, default="auto",
+                   help="Chế độ thinking: auto (theo intent), on (luôn bật), off (luôn tắt)")
     p.add_argument("query", nargs="*")
     return p
 
@@ -638,7 +747,10 @@ def main() -> int:
         # Single query mode
         initial = " ".join(args.query).strip()
         if initial:
-            result = service.answer(initial, law_id=args.law_id, top_k=args.top_k)
+            result = service.answer(
+                initial, law_id=args.law_id, top_k=args.top_k,
+                thinking_mode=args.thinking,
+            )
             _print_answer_block(result)
             if args.show_context:
                 _print_context(result)
@@ -652,10 +764,13 @@ def main() -> int:
             if current_law == "__exit__":
                 return 0
         print(f"  Filter: law_id={current_law or '(tất cả)'}")
-        print("  Gõ /exit để thoát, /ctx để toggle context, /law để chọn lại luật")
+        print("  Gõ /exit để thoát, /ctx để toggle context, /law để chọn lại luật,")
+        print("        /think để đổi mode thinking (auto/on/off)")
         print()
 
         show_ctx = args.show_context
+        thinking_mode = args.thinking
+        print(f"  [thinking={thinking_mode}]")
         while True:
             try:
                 query = input(">>> ").strip()
@@ -677,9 +792,22 @@ def main() -> int:
                 current_law = picked
                 print(f"  [law_id={current_law or '(tất cả)'}]")
                 continue
+            if query.lower().startswith("/think"):
+                parts = query.split(maxsplit=1)
+                if len(parts) == 2 and parts[1].strip().lower() in THINKING_MODES:
+                    thinking_mode = parts[1].strip().lower()
+                else:
+                    # cycle auto → on → off → auto
+                    nxt = {"auto": "on", "on": "off", "off": "auto"}
+                    thinking_mode = nxt[thinking_mode]
+                print(f"  [thinking={thinking_mode}]")
+                continue
 
             try:
-                result = service.answer(query, law_id=current_law, top_k=args.top_k)
+                result = service.answer(
+                    query, law_id=current_law, top_k=args.top_k,
+                    thinking_mode=thinking_mode,
+                )
                 _print_answer_block(result)
                 if show_ctx:
                     _print_context(result)

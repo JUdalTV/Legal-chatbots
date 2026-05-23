@@ -1,0 +1,2208 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Chat</title>
+  <style>
+    :root {
+      --bg: #1f1f1e;
+      --bg-elevated: #262624;
+      --bg-sidebar: #181817;
+      --bg-input: #2a2a28;
+      --bg-bubble-user: #353532;
+      --bg-code: #1a1a19;
+      --text: #e8e6e3;
+      --text-muted: #a1a09c;
+      --text-faint: #7a7975;
+      --border: #3a3937;
+      --border-soft: #2e2d2b;
+      --accent: #d97757;
+      --accent-hover: #c46444;
+      --accent-soft: rgba(217, 119, 87, 0.12);
+      --danger: #e06c75;
+      --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --serif: "Source Serif Pro", Georgia, "Times New Roman", serif;
+      --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      color-scheme: dark;
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; width: 100%; }
+    button {
+      font-family: inherit;
+      color: inherit;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+    }
+    input, textarea, select {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+      background: none;
+      border: none;
+      outline: none;
+    }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4946; }
+
+    .app {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-soft);
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 8px;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 6px 14px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .sidebar-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .sidebar-title {
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    }
+
+    .new-chat-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .new-chat-btn:hover { background: var(--bg-elevated); }
+
+    .conv-section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-faint);
+      padding: 12px 8px 6px;
+    }
+
+    .conv-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 8px;
+    }
+
+    .conv-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      text-align: left;
+    }
+    .conv-item:hover, .conv-item.active {
+      background: var(--bg-elevated);
+      color: var(--text);
+    }
+    .conv-item-title {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .conv-item-del {
+      opacity: 0;
+      font-size: 16px;
+      color: var(--text-faint);
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: opacity 0.15s;
+    }
+    .conv-item:hover .conv-item-del { opacity: 1; }
+    .conv-item-del:hover {
+      color: var(--danger);
+      background: rgba(224, 108, 117, 0.12);
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid var(--border-soft);
+      padding: 10px 8px;
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border-soft);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .topbar-left, .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chat-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 4px;
+    }
+    .control-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-faint);
+      padding: 0 6px;
+    }
+    .control-btn {
+      padding: 5px 10px;
+      border-radius: 7px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .control-btn:hover { color: var(--text); }
+    .control-btn.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .select, .api-input {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .select {
+      padding-right: 30px;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a1a09c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 14px;
+      cursor: pointer;
+      max-width: 260px;
+    }
+    .api-input {
+      width: 190px;
+    }
+    .select:hover, .api-input:hover { border-color: var(--border); }
+
+    .chat {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-inner {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      flex: 1;
+    }
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-muted);
+      padding: 60px 20px;
+      text-align: center;
+    }
+    .empty-state h2 {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--text);
+      margin: 0;
+    }
+    .empty-state p {
+      font-size: 14px;
+      margin: 0;
+      max-width: 460px;
+    }
+    .suggestion-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 20px;
+      width: 100%;
+      max-width: 560px;
+    }
+    .suggestion {
+      text-align: left;
+      padding: 12px 14px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      transition: all 0.15s;
+    }
+    .suggestion:hover {
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .msg {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .msg-role {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-faint);
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0.2px;
+    }
+    .badge.muted {
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+    }
+    .msg-content {
+      font-size: 15px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      color: var(--text);
+    }
+    .msg.user {
+      align-items: flex-end;
+    }
+    .msg.user .msg-content {
+      background: var(--bg-bubble-user);
+      padding: 12px 16px;
+      border-radius: 14px;
+      align-self: flex-end;
+      max-width: 85%;
+    }
+    .msg.assistant .msg-content {
+      padding: 4px 0;
+    }
+    .msg.assistant .msg-content.markdown {
+      white-space: normal;
+    }
+    .markdown h1,
+    .markdown h2,
+    .markdown h3 {
+      margin: 14px 0 8px;
+      color: var(--text);
+      line-height: 1.3;
+      font-weight: 650;
+    }
+    .markdown h1 { font-size: 22px; }
+    .markdown h2 { font-size: 19px; }
+    .markdown h3 { font-size: 16px; }
+    .markdown p { margin: 0 0 10px; }
+    .markdown ul,
+    .markdown ol {
+      margin: 6px 0 12px;
+      padding-left: 24px;
+    }
+    .markdown li {
+      margin: 4px 0;
+      padding-left: 2px;
+    }
+    .markdown blockquote {
+      margin: 8px 0 12px;
+      padding: 8px 12px;
+      border-left: 3px solid var(--accent);
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      border-radius: 0 8px 8px 0;
+    }
+    .markdown code {
+      font-family: var(--mono);
+      font-size: 0.92em;
+      background: var(--bg-code);
+      border: 1px solid var(--border-soft);
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+    .markdown pre {
+      margin: 8px 0 12px;
+      padding: 10px 12px;
+      background: var(--bg-code);
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .markdown pre code {
+      padding: 0;
+      border: none;
+      background: transparent;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .markdown table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      font-size: 14px;
+    }
+    .markdown th,
+    .markdown td {
+      border: 1px solid var(--border-soft);
+      padding: 7px 9px;
+      vertical-align: top;
+    }
+    .markdown th {
+      background: var(--bg-elevated);
+      color: var(--text);
+      text-align: left;
+      font-weight: 600;
+    }
+    .markdown a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .markdown a:hover { text-decoration: underline; }
+    .markdown hr {
+      border: none;
+      border-top: 1px solid var(--border-soft);
+      margin: 14px 0;
+    }
+    .msg.error .msg-content {
+      color: var(--danger);
+      background: rgba(224, 108, 117, 0.08);
+      border: 1px solid rgba(224, 108, 117, 0.2);
+      padding: 12px 16px;
+      border-radius: 12px;
+    }
+    .msg-meta {
+      font-size: 12px;
+      color: var(--text-faint);
+      margin-top: 4px;
+      font-style: italic;
+    }
+
+    .ctx {
+      margin-top: 10px;
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      background: var(--bg-elevated);
+      overflow: hidden;
+    }
+    .ctx-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .ctx-summary:hover { color: var(--text); }
+    .ctx[open] .chev { transform: rotate(90deg); }
+    .chev {
+      transition: transform 0.15s;
+      font-size: 10px;
+    }
+    .ctx-body {
+      padding: 0 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .ctx-section {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ctx-section h4 {
+      margin: 0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-faint);
+    }
+    .ctx-section pre {
+      margin: 0;
+      background: var(--bg-code);
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-muted);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .ctx-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .ctx-action {
+      padding: 4px 8px;
+      border: 1px solid var(--border-soft);
+      border-radius: 7px;
+      background: var(--bg-code);
+      color: var(--text-muted);
+      font-size: 11.5px;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .ctx-action:hover,
+    .ctx-action.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .graph-viz {
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      background: var(--bg-code);
+      overflow: auto;
+      max-height: 480px;
+    }
+    .graph-viz.is-hidden { display: none; }
+    .graph-viz svg {
+      display: block;
+      min-width: 760px;
+      width: 100%;
+      height: auto;
+    }
+    .graph-edge {
+      stroke: #6b6964;
+      stroke-width: 1.2;
+      fill: none;
+      opacity: 0.78;
+    }
+    .graph-edge-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      fill: var(--text-faint);
+      paint-order: stroke;
+      stroke: var(--bg-code);
+      stroke-width: 4px;
+      stroke-linejoin: round;
+    }
+    .graph-node rect {
+      stroke: var(--border);
+      stroke-width: 1;
+      rx: 7;
+      ry: 7;
+    }
+    .graph-node text {
+      font-family: var(--sans);
+      font-size: 11.5px;
+      fill: var(--text);
+      pointer-events: none;
+    }
+    .graph-node .node-type {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      fill: var(--text-faint);
+      text-transform: uppercase;
+    }
+    .graph-node.law rect { fill: #28332d; }
+    .graph-node.article rect { fill: #37302a; stroke: var(--accent); }
+    .graph-node.clause rect { fill: #2c2f34; }
+    .graph-node.ref rect { fill: #302d38; }
+    .graph-node.entity rect { fill: #262f30; }
+    .graph-empty {
+      padding: 12px;
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+    .graph-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.68);
+      display: grid;
+      place-items: center;
+      padding: 22px;
+    }
+    .graph-modal[hidden] { display: none; }
+    .graph-panel {
+      width: min(1500px, 96vw);
+      height: min(940px, 92vh);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.48);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+    .graph-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-soft);
+      background: var(--bg-sidebar);
+    }
+    .graph-modal-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .graph-modal-title strong {
+      font-size: 14px;
+      color: var(--text);
+    }
+    .graph-modal-title span {
+      font-size: 12px;
+      color: var(--text-faint);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .graph-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border-soft);
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      font-size: 20px;
+      line-height: 1;
+    }
+    .graph-close:hover {
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .graph-modal-body {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+    }
+    .graph-stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      background:
+        linear-gradient(rgba(255,255,255,0.026) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px),
+        var(--bg-code);
+      background-size: 28px 28px;
+    }
+    .graph-stage svg {
+      display: block;
+      min-width: 1180px;
+      min-height: 760px;
+    }
+    .neo-edge {
+      stroke: #77736d;
+      stroke-width: 1.55;
+      opacity: 0.9;
+      cursor: pointer;
+    }
+    .neo-edge:hover { stroke: var(--accent); }
+    .neo-edge-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      fill: var(--text-muted);
+      paint-order: stroke;
+      stroke: var(--bg-code);
+      stroke-width: 4px;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+    .neo-node { cursor: pointer; }
+    .neo-node circle {
+      stroke: rgba(255,255,255,0.22);
+      stroke-width: 1.5;
+      filter: drop-shadow(0 5px 12px rgba(0,0,0,0.28));
+    }
+    .neo-node:hover circle {
+      stroke: var(--accent);
+      stroke-width: 2.5;
+    }
+    .neo-node text {
+      fill: #f4f1ec;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 600;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    .neo-node .neo-label-type {
+      fill: rgba(255,255,255,0.72);
+      font-family: var(--mono);
+      font-size: 8.5px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+    .graph-inspector {
+      border-left: 1px solid var(--border-soft);
+      background: var(--bg-elevated);
+      min-width: 0;
+      overflow: auto;
+      padding: 14px;
+    }
+    .graph-inspector h3 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .graph-inspector p {
+      margin: 0 0 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .graph-props {
+      display: grid;
+      gap: 7px;
+      font-size: 12px;
+    }
+    .graph-prop {
+      display: grid;
+      gap: 2px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .graph-prop-key {
+      color: var(--text-faint);
+      font-family: var(--mono);
+      font-size: 10.5px;
+    }
+    .graph-prop-value {
+      color: var(--text-muted);
+      word-break: break-word;
+    }
+
+    .typing {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      padding: 8px 0;
+    }
+    .typing .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-faint);
+      animation: blink 1.2s infinite;
+    }
+    .typing .dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink {
+      0%, 80%, 100% { opacity: 0.25; }
+      40% { opacity: 1; }
+    }
+
+    /* Thinking card */
+    .think {
+      margin-top: 8px;
+      margin-bottom: 4px;
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      background: linear-gradient(
+        180deg,
+        rgba(217, 119, 87, 0.04) 0%,
+        rgba(217, 119, 87, 0.01) 100%
+      );
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .think:hover { border-color: var(--border); }
+    .think[open] { background: var(--bg-elevated); }
+    .think-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .think-summary::-webkit-details-marker { display: none; }
+    .think-summary:hover { color: var(--text); }
+    .think-icon { font-size: 13px; display: inline-flex; }
+    .think-label { font-weight: 500; color: var(--text); }
+    .think-len {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-faint);
+      margin-left: 2px;
+    }
+    .think-summary .chev { margin-left: auto; color: var(--text-faint); }
+    .think[open] .think-summary .chev { transform: rotate(90deg); }
+    .think-body {
+      padding: 10px 14px 12px 36px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      max-height: 360px;
+      overflow-y: auto;
+      border-top: 1px solid var(--border-soft);
+    }
+    .think[open] > .think-body {
+      animation: think-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes think-pulse {
+      0%, 100% { opacity: 0.85; }
+      50% { opacity: 1; }
+    }
+
+    /* Streaming caret */
+    .caret {
+      display: inline-block;
+      width: 7px;
+      height: 1em;
+      margin-left: 2px;
+      background: var(--accent);
+      vertical-align: text-bottom;
+      border-radius: 1px;
+      animation: caret-blink 1s steps(2, start) infinite;
+    }
+    @keyframes caret-blink {
+      to { visibility: hidden; }
+    }
+
+    .composer-wrap {
+      padding: 12px 24px 20px;
+      border-top: 1px solid var(--border-soft);
+      background: var(--bg);
+    }
+    .composer {
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+      padding: 10px 10px 10px 14px;
+      transition: border-color 0.15s;
+    }
+    .composer:focus-within { border-color: var(--border); }
+    .composer textarea {
+      flex: 1;
+      resize: none;
+      min-height: 24px;
+      max-height: 220px;
+      padding: 4px 0;
+      background: transparent;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .composer textarea::placeholder { color: var(--text-faint); }
+    .send-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .send-btn:hover:not(:disabled) { background: var(--accent-hover); }
+    .send-btn:disabled {
+      background: var(--border);
+      color: var(--text-faint);
+      cursor: not-allowed;
+    }
+    .composer-hint {
+      max-width: 760px;
+      margin: 6px auto 0;
+      font-size: 11px;
+      color: var(--text-faint);
+      text-align: center;
+    }
+
+    @media (max-width: 760px) {
+      .sidebar { display: none; }
+      .topbar { padding: 10px 14px; }
+      .chat-inner { padding: 18px 14px; }
+      .composer-wrap { padding: 10px 14px 16px; }
+      .suggestion-grid { grid-template-columns: 1fr; }
+      .api-input { width: 100%; }
+      .graph-modal { padding: 8px; }
+      .graph-panel { width: 100vw; height: 100vh; border-radius: 0; }
+      .graph-modal-body { grid-template-columns: 1fr; grid-template-rows: 1fr 220px; }
+      .graph-inspector { border-left: none; border-top: 1px solid var(--border-soft); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">L</div>
+        <div class="sidebar-title">Legal Chat</div>
+      </div>
+
+      <button id="newChatBtn" class="new-chat-btn">
+        <span>+</span>
+        <span>Cuộc trò chuyện mới</span>
+      </button>
+
+      <div class="conv-section-title">Lịch sử</div>
+      <div id="convList" class="conv-list"></div>
+
+      <div class="sidebar-footer">Hybrid RAG · Vector + Graph · LLM thinking</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div id="chatTitle" class="chat-title">New chat</div>
+        </div>
+        <div class="topbar-right">
+          <input id="apiBase" class="api-input" title="API backend base URL" />
+
+          <select id="lawSelect" class="select" title="Lọc theo luật">
+            <option value="">Tất cả luật</option>
+          </select>
+
+          <div class="control-group" title="Chế độ suy luận của LLM">
+            <span class="control-label">Thinking</span>
+            <button class="control-btn active" data-thinking="auto">auto</button>
+            <button class="control-btn" data-thinking="on">on</button>
+            <button class="control-btn" data-thinking="off">off</button>
+          </div>
+
+          <div class="control-group" title="Hiển thị Vector/Graph context">
+            <span class="control-label">Context</span>
+            <button id="contextBtn" class="control-btn">off</button>
+          </div>
+        </div>
+      </header>
+
+      <div id="chat" class="chat">
+        <div id="chatInner" class="chat-inner"></div>
+      </div>
+
+      <div class="composer-wrap">
+        <div class="composer">
+          <textarea
+            id="input"
+            placeholder="Nhập câu hỏi pháp lý... (Enter để gửi, Shift+Enter để xuống dòng)"
+            rows="1"
+          ></textarea>
+          <button id="sendBtn" class="send-btn" title="Gửi" disabled>↑</button>
+        </div>
+        <div id="composerHint" class="composer-hint">Tất cả luật · thinking=auto · context=off</div>
+      </div>
+    </main>
+  </div>
+
+  <div id="graphModal" class="graph-modal" hidden>
+    <div class="graph-panel">
+      <div class="graph-modal-header">
+        <div class="graph-modal-title">
+          <strong>Neo4j subgraph</strong>
+          <span id="graphMeta">No graph loaded</span>
+        </div>
+        <button id="graphClose" class="graph-close" type="button" title="Đóng">×</button>
+      </div>
+      <div class="graph-modal-body">
+        <div id="graphStage" class="graph-stage"></div>
+        <aside id="graphInspector" class="graph-inspector">
+          <h3>Selection</h3>
+          <p>Click a node or relationship to inspect Neo4j properties.</p>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUGGESTIONS = [
+      "Điều 15 Luật An ninh mạng 2025 quy định gì?",
+      "Phân biệt lỗ hổng bảo mật và sự cố an ninh mạng theo Luật.",
+      "Doanh nghiệp viễn thông có nghĩa vụ gì khi đại lý đăng ký SIM sai thông tin?",
+      "So sánh Luật CNTT 2006 và Luật CNTT 2025 về điều kiện kinh doanh.",
+    ];
+
+    const state = {
+      conversations: [newConversation()],
+      activeId: null,
+      laws: [],
+      lawId: "",
+      thinking: "auto",
+      showContext: false,
+      input: "",
+      sending: false,
+      apiBase: localStorage.getItem("legal-chat-api-base") || "http://localhost:8000",
+    };
+    state.activeId = state.conversations[0].id;
+    let currentGraphView = { nodes: new Map(), edges: new Map() };
+
+    const els = {
+      convList: document.getElementById("convList"),
+      chatTitle: document.getElementById("chatTitle"),
+      chat: document.getElementById("chat"),
+      chatInner: document.getElementById("chatInner"),
+      input: document.getElementById("input"),
+      sendBtn: document.getElementById("sendBtn"),
+      newChatBtn: document.getElementById("newChatBtn"),
+      lawSelect: document.getElementById("lawSelect"),
+      contextBtn: document.getElementById("contextBtn"),
+      composerHint: document.getElementById("composerHint"),
+      apiBase: document.getElementById("apiBase"),
+      graphModal: document.getElementById("graphModal"),
+      graphMeta: document.getElementById("graphMeta"),
+      graphStage: document.getElementById("graphStage"),
+      graphInspector: document.getElementById("graphInspector"),
+      graphClose: document.getElementById("graphClose"),
+      thinkingBtns: Array.from(document.querySelectorAll("[data-thinking]")),
+    };
+
+    els.apiBase.value = state.apiBase;
+
+    function genId() {
+      return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+
+    function newConversation() {
+      return {
+        id: genId(),
+        title: "New chat",
+        messages: [],
+        createdAt: Date.now(),
+      };
+    }
+
+    function activeConversation() {
+      return state.conversations.find((c) => c.id === state.activeId) || state.conversations[0];
+    }
+
+    function truncate(s, n) {
+      const t = String(s || "").trim().replace(/\s+/g, " ");
+      return t.length <= n ? t : t.slice(0, n - 1) + "...";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderMarkdown(value) {
+      const source = String(value ?? "").replace(/\r\n?/g, "\n");
+      const codeBlocks = [];
+      let text = source.replace(/```([\w-]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        const token = `@@CODEBLOCK_${codeBlocks.length}@@`;
+        codeBlocks.push(
+          `<pre><code${lang ? ` data-lang="${escapeHtml(lang)}"` : ""}>${escapeHtml(code.trimEnd())}</code></pre>`
+        );
+        return `\n${token}\n`;
+      });
+
+      text = escapeHtml(text);
+      text = renderMarkdownTables(text);
+      text = text
+        .replace(/^######\s+(.+)$/gm, "<h3>$1</h3>")
+        .replace(/^#####\s+(.+)$/gm, "<h3>$1</h3>")
+        .replace(/^####\s+(.+)$/gm, "<h3>$1</h3>")
+        .replace(/^###\s+(.+)$/gm, "<h3>$1</h3>")
+        .replace(/^##\s+(.+)$/gm, "<h2>$1</h2>")
+        .replace(/^#\s+(.+)$/gm, "<h1>$1</h1>")
+        .replace(/^\s*---+\s*$/gm, "<hr>")
+        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*\n][\s\S]*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/__([^_\n][\s\S]*?)__/g, "<strong>$1</strong>")
+        .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+        .replace(/(^|[\s(])_([^_\n]+)_/g, "$1<em>$2</em>")
+        .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+      text = renderMarkdownLists(text);
+      text = renderBlockquotes(text);
+      text = text.replace(/@@CODEBLOCK_(\d+)@@/g, (_, i) => codeBlocks[Number(i)] || "");
+      return renderParagraphs(text);
+    }
+
+    function renderMarkdownTables(text) {
+      const lines = text.split("\n");
+      const out = [];
+      for (let i = 0; i < lines.length; i += 1) {
+        if (
+          i + 1 < lines.length &&
+          /^\s*\|(.+)\|\s*$/.test(lines[i]) &&
+          /^\s*\|?[\s:|-]+\|[\s:|.-]*\|?\s*$/.test(lines[i + 1])
+        ) {
+          const header = splitTableRow(lines[i]);
+          i += 2;
+          const rows = [];
+          while (i < lines.length && /^\s*\|(.+)\|\s*$/.test(lines[i])) {
+            rows.push(splitTableRow(lines[i]));
+            i += 1;
+          }
+          i -= 1;
+          out.push(
+            "<table><thead><tr>" +
+            header.map((c) => `<th>${c}</th>`).join("") +
+            "</tr></thead><tbody>" +
+            rows.map((r) => "<tr>" + r.map((c) => `<td>${c}</td>`).join("") + "</tr>").join("") +
+            "</tbody></table>"
+          );
+        } else {
+          out.push(lines[i]);
+        }
+      }
+      return out.join("\n");
+    }
+
+    function splitTableRow(line) {
+      return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+    }
+
+    function renderMarkdownLists(text) {
+      const lines = text.split("\n");
+      const out = [];
+      let listType = null;
+      let items = [];
+
+      function flush() {
+        if (!listType) return;
+        out.push(`<${listType}>${items.map((item) => `<li>${item}</li>`).join("")}</${listType}>`);
+        listType = null;
+        items = [];
+      }
+
+      for (const line of lines) {
+        const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+        const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+        if (unordered || ordered) {
+          const nextType = unordered ? "ul" : "ol";
+          if (listType && listType !== nextType) flush();
+          listType = nextType;
+          items.push((unordered || ordered)[1]);
+        } else {
+          flush();
+          out.push(line);
+        }
+      }
+      flush();
+      return out.join("\n");
+    }
+
+    function renderBlockquotes(text) {
+      const lines = text.split("\n");
+      const out = [];
+      let quote = [];
+
+      function flush() {
+        if (!quote.length) return;
+        out.push(`<blockquote>${quote.join("<br>")}</blockquote>`);
+        quote = [];
+      }
+
+      for (const line of lines) {
+        const m = line.match(/^\s*&gt;\s?(.*)$/);
+        if (m) {
+          quote.push(m[1]);
+        } else {
+          flush();
+          out.push(line);
+        }
+      }
+      flush();
+      return out.join("\n");
+    }
+
+    function renderParagraphs(text) {
+      const blockStart = /^(<h[1-3]|<ul|<ol|<blockquote|<pre|<table|<hr)/;
+      return text
+        .split(/\n{2,}/)
+        .map((block) => block.trim())
+        .filter(Boolean)
+        .map((block) => {
+          if (blockStart.test(block)) return block;
+          return `<p>${block.replace(/\n/g, "<br>")}</p>`;
+        })
+        .join("");
+    }
+
+    function apiUrl(path) {
+      return state.apiBase.replace(/\/+$/, "") + path;
+    }
+
+    function updateActive(fn) {
+      state.conversations = state.conversations.map((c) => (
+        c.id === state.activeId ? fn(c) : c
+      ));
+      render();
+    }
+
+    function render() {
+      const active = activeConversation();
+      els.chatTitle.textContent = active?.title || "Chat";
+      renderConversations();
+      renderLaws();
+      renderMessages();
+      renderControls();
+      updateComposer();
+      requestAnimationFrame(() => {
+        els.chat.scrollTop = els.chat.scrollHeight;
+      });
+    }
+
+    function renderConversations() {
+      els.convList.innerHTML = state.conversations.map((c) => `
+        <div class="conv-item ${c.id === state.activeId ? "active" : ""}" data-conv-id="${escapeHtml(c.id)}">
+          <div class="conv-item-title">${escapeHtml(c.title)}</div>
+          <button class="conv-item-del" title="Xóa" data-delete-id="${escapeHtml(c.id)}">×</button>
+        </div>
+      `).join("");
+    }
+
+    function renderLaws() {
+      const current = els.lawSelect.value;
+      els.lawSelect.innerHTML = `<option value="">Tất cả luật</option>` + state.laws.map((l) => (
+        `<option value="${escapeHtml(l.id)}">${escapeHtml(l.label)}</option>`
+      )).join("");
+      els.lawSelect.value = state.lawId || current || "";
+    }
+
+    function renderControls() {
+      els.thinkingBtns.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.thinking === state.thinking);
+      });
+      els.contextBtn.classList.toggle("active", state.showContext);
+      els.contextBtn.textContent = state.showContext ? "on" : "off";
+    }
+
+    function renderMessages() {
+      const active = activeConversation();
+      const messages = active?.messages || [];
+      if (!messages.length) {
+        els.chatInner.innerHTML = `
+          <div class="empty-state">
+            <h2>Hỏi gì về luật Viễn thông, CNTT, An ninh mạng?</h2>
+            <p>
+              Pipeline kết hợp Vector RAG (Qdrant) + Graph RAG (Neo4j) + LLM.
+              Câu suy luận có thể bật <code>thinking</code> để mô hình lập luận sâu hơn.
+            </p>
+            <div class="suggestion-grid">
+              ${SUGGESTIONS.map((s) => `
+                <button class="suggestion" data-suggestion="${escapeHtml(s)}">${escapeHtml(s)}</button>
+              `).join("")}
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      els.chatInner.innerHTML = messages.map(messageHtml).join("");
+    }
+
+    function messageHtml(m) {
+      if (m.role === "user") {
+        return `
+          <div class="msg user">
+            <div class="msg-role">Bạn</div>
+            <div class="msg-content">${escapeHtml(m.text)}</div>
+          </div>
+        `;
+      }
+      if (m.role === "error") {
+        return `
+          <div class="msg error">
+            <div class="msg-role">Lỗi</div>
+            <div class="msg-content">${escapeHtml(m.text)}</div>
+          </div>
+        `;
+      }
+
+      const refined = m.refined || {};
+      const original = String(refined.original || "").trim();
+      const refinedText = String(refined.refined || "").trim();
+      const refinedChanged = refinedText && refinedText !== original;
+      const hasContext = m.context && (m.context.vector_context || m.context.graph_context);
+      const hasThinking = m.thinking && m.thinking.length > 0;
+      const showThinkingLive = m.streaming && hasThinking && !m.answer;
+      const showTypingDots = m.streaming && !m.answer && !hasThinking;
+      const showCaret = m.streaming && m.answer;
+
+      return `
+        <div class="msg assistant" data-msg-id="${escapeHtml(m.id || "")}">
+          <div class="msg-role">
+            Trợ lý
+            ${m.intent ? `<span class="badge">${escapeHtml(m.intent)}</span>` : ""}
+            ${m.refined ? `<span class="badge ${m.thinking_used ? "" : "muted"}">${m.thinking_used ? "thinking" : "no-thinking"}</span>` : ""}
+          </div>
+          ${refinedChanged ? `<div class="msg-meta">↻ refined: ${escapeHtml(refinedText)}</div>` : ""}
+          ${refined.objective ? `<div class="msg-meta">🎯 mục tiêu: ${escapeHtml(refined.objective)}</div>` : ""}
+          ${hasThinking ? thinkHtml(m, showThinkingLive) : ""}
+          ${showTypingDots
+            ? `<div class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`
+            : `<div class="msg-content markdown">${renderMarkdown(m.answer || "")}${showCaret ? '<span class="caret"></span>' : ""}</div>`
+          }
+          ${hasContext ? contextHtml(m.context) : ""}
+        </div>
+      `;
+    }
+
+    function thinkHtml(m, openByDefault) {
+      const liveLabel = m.streaming && !m.answer;
+      return `
+        <details class="think"${openByDefault ? " open" : ""}>
+          <summary class="think-summary">
+            <span class="think-icon">${liveLabel ? "✨" : "💭"}</span>
+            <span class="think-label">${liveLabel ? "Đang suy nghĩ…" : "Suy nghĩ"}</span>
+            <span class="think-len">${(m.thinking || "").length.toLocaleString()} ký tự</span>
+            <span class="chev">▸</span>
+          </summary>
+          <div class="think-body">${escapeHtml(m.thinking || "")}</div>
+        </details>
+      `;
+    }
+
+    function contextHtml(context) {
+      const ids = Array.isArray(context.graph_article_ids) ? context.graph_article_ids : [];
+      return `
+        <details class="ctx">
+          <summary class="ctx-summary">
+            <span>Xem context retrieval</span>
+            <span class="chev">▸</span>
+          </summary>
+          <div class="ctx-body">
+            ${context.vector_context ? `
+              <div class="ctx-section">
+                <h4>VECTOR_CHUNKS</h4>
+                <pre>${escapeHtml(context.vector_context)}</pre>
+              </div>
+            ` : ""}
+            ${context.graph_context ? `
+              <div class="ctx-section">
+                <div class="ctx-head">
+                  <h4>GRAPH_CONTEXT</h4>
+                  <button class="ctx-action" type="button" data-graph-open="${escapeHtml(ids.join("|"))}">
+                    Open Neo4j graph
+                  </button>
+                </div>
+                <pre>${escapeHtml(context.graph_context)}</pre>
+              </div>
+            ` : ""}
+            ${ids.length ? `
+              <div class="ctx-section">
+                <h4>GRAPH_ARTICLE_IDS</h4>
+                <pre>${escapeHtml(ids.join(", "))}</pre>
+              </div>
+            ` : ""}
+          </div>
+        </details>
+      `;
+    }
+
+    function graphVizHtml(graphContext, articleIds) {
+      const graph = parseGraphContext(graphContext, articleIds);
+      if (!graph.nodes.length) {
+        return `
+          <div class="graph-viz is-hidden" data-graph-viz>
+            <div class="graph-empty">No graph structure detected.</div>
+          </div>
+        `;
+      }
+      const layout = layoutGraph(graph.nodes, graph.edges);
+      const markerId = `arrow-${genId()}`;
+      const edges = graph.edges.map((edge) => {
+        const from = layout.nodeMap.get(edge.from);
+        const to = layout.nodeMap.get(edge.to);
+        if (!from || !to) return "";
+        const x1 = from.x + from.w;
+        const y1 = from.y + from.h / 2;
+        const x2 = to.x;
+        const y2 = to.y + to.h / 2;
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2 - 6;
+        return `
+          <path class="graph-edge" d="M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}" marker-end="url(#${markerId})"></path>
+          <text class="graph-edge-label" x="${midX}" y="${midY}" text-anchor="middle">${escapeHtml(shorten(edge.label, 24))}</text>
+        `;
+      }).join("");
+      const nodes = layout.nodes.map((node) => {
+        const lines = wrapLabel(node.label, 22, 2);
+        return `
+          <g class="graph-node ${escapeHtml(node.kind)}" transform="translate(${node.x} ${node.y})">
+            <rect width="${node.w}" height="${node.h}"></rect>
+            <text class="node-type" x="10" y="15">${escapeHtml(node.type)}</text>
+            ${lines.map((line, i) => (
+              `<text x="10" y="${33 + i * 14}">${escapeHtml(line)}</text>`
+            )).join("")}
+          </g>
+        `;
+      }).join("");
+      return `
+        <div class="graph-viz is-hidden" data-graph-viz>
+          <svg viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="Graph context visualization">
+            <defs>
+              <marker id="${markerId}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b6964"></path>
+              </marker>
+            </defs>
+            ${edges}
+            ${nodes}
+          </svg>
+        </div>
+      `;
+    }
+
+    function parseGraphContext(value, articleIds = []) {
+      const nodes = new Map();
+      const edges = [];
+      const blocks = String(value || "")
+        .split(/\n\s*---+\s*\n/g)
+        .map((b) => b.trim())
+        .filter(Boolean);
+
+      function addNode(id, label, type, kind) {
+        const key = normalizeNodeId(id || label || type);
+        if (!key) return null;
+        if (!nodes.has(key)) {
+          nodes.set(key, {
+            id: key,
+            label: cleanLabel(label || key),
+            type: cleanLabel(type || "NODE"),
+            kind: kind || nodeKind(type),
+          });
+        }
+        return key;
+      }
+
+      function addEdge(from, to, label) {
+        if (!from || !to || from === to) return;
+        const key = `${from}|${label}|${to}`;
+        if (edges.some((e) => e.key === key)) return;
+        edges.push({ key, from, to, label: cleanLabel(label || "REL") });
+      }
+
+      blocks.forEach((block, blockIndex) => {
+        const lines = block.split(/\n+/).map((l) => normalizeGraphSyntax(l).trim()).filter(Boolean);
+        if (!lines.length) return;
+
+        const first = lines[0];
+        const heading = first.match(/^\[([^\]]+)\]\s*(.+)$/);
+        const lawLabel = heading ? heading[1] : "LAW";
+        const articleLabel = heading ? heading[2] : first;
+        const articleId = articleIds[blockIndex] || articleLabel;
+        const lawId = addNode(`law:${lawLabel}`, lawLabel, "LAW", "law");
+        const articleNodeId = addNode(`article:${articleId}`, articleLabel, "ARTICLE", "article");
+        addEdge(lawId, articleNodeId, "HAS_ARTICLE");
+
+        for (const line of lines.slice(1)) {
+          const bullet = line.match(/^(?:[-*]|\u2022|â€¢)\s*(.+)$/);
+          if (bullet) {
+            const body = bullet[1].trim();
+            const relation = body.match(/^(.+?)\s*(?:\u2014|--|-)\s*([A-Z][A-Z0-9_]{2,})\s*(?:\u2192|->)\s*(.+?)(?:\s+\[(.+)\])?$/);
+            if (relation) {
+              const from = addNode(`entity:${relation[1]}`, relation[1], "ENTITY", "entity");
+              const to = addNode(`entity:${relation[3]}`, relation[3], "ENTITY", "entity");
+              addEdge(articleNodeId, from, "CONTEXT");
+              addEdge(from, to, relation[2]);
+              addEdge(to, articleNodeId, "IN_ARTICLE");
+              continue;
+            }
+
+            const entityGroup = body.match(/^([A-Z][A-Z0-9_]{2,}):\s*(.+)$/);
+            if (entityGroup) {
+              const type = entityGroup[1];
+              entityGroup[2].split(/\s*,\s*/).filter(Boolean).slice(0, 8).forEach((label) => {
+                const entityId = addNode(`${type}:${label}`, label, type, "entity");
+                addEdge(articleNodeId, entityId, "MENTIONS");
+              });
+              continue;
+            }
+
+            if (body.length > 12) {
+              const clauseId = addNode(`clause:${articleId}:${body.slice(0, 80)}`, body, "CLAUSE", "clause");
+              addEdge(articleNodeId, clauseId, "HAS_CLAUSE");
+            }
+            continue;
+          }
+
+          const refLine = line.match(/^[^:]{0,40}:\s*(.+)$/);
+          if (refLine && /(?:REF|tham|chi|den|to)/i.test(stripAccents(line))) {
+            refLine[1].split(/\s*,\s*/).filter(Boolean).slice(0, 8).forEach((ref) => {
+              const refId = addNode(`ref:${ref}`, ref, "ARTICLE_REF", "ref");
+              addEdge(articleNodeId, refId, "REFERS_TO");
+            });
+          }
+        }
+      });
+
+      return {
+        nodes: Array.from(nodes.values()).slice(0, 80),
+        edges: edges.filter((edge) => nodes.has(edge.from) && nodes.has(edge.to)).slice(0, 120),
+      };
+    }
+
+    function layoutGraph(nodes, edges) {
+      const buckets = {
+        law: [],
+        article: [],
+        clause: [],
+        entity: [],
+        ref: [],
+      };
+      nodes.forEach((node) => {
+        const bucket = buckets[node.kind] ? node.kind : "entity";
+        buckets[bucket].push(node);
+      });
+
+      const cols = [
+        ["law", 28],
+        ["article", 195],
+        ["clause", 370],
+        ["entity", 555],
+        ["ref", 735],
+      ];
+      const maxRows = Math.max(1, ...Object.values(buckets).map((b) => b.length));
+      const height = Math.max(360, 58 + maxRows * 78);
+      const laidOut = [];
+
+      cols.forEach(([kind, x]) => {
+        const list = buckets[kind];
+        const gap = height / (list.length + 1);
+        list.forEach((node, i) => {
+          laidOut.push({
+            ...node,
+            x,
+            y: Math.max(24, Math.round(gap * (i + 1) - 30)),
+            w: kind === "clause" ? 165 : 145,
+            h: 58,
+          });
+        });
+      });
+
+      return {
+        nodes: laidOut,
+        nodeMap: new Map(laidOut.map((node) => [node.id, node])),
+        width: 910,
+        height,
+      };
+    }
+
+    function normalizeNodeId(value) {
+      return String(value || "").trim().toLowerCase().replace(/\s+/g, " ").slice(0, 160);
+    }
+
+    function cleanLabel(value) {
+      return String(value || "").replace(/\s+/g, " ").trim();
+    }
+
+    function shorten(value, max) {
+      const text = cleanLabel(value);
+      return text.length <= max ? text : `${text.slice(0, max - 1)}...`;
+    }
+
+    function wrapLabel(value, width, maxLines) {
+      const words = cleanLabel(value).split(/\s+/);
+      const lines = [];
+      let line = "";
+      for (const word of words) {
+        const next = line ? `${line} ${word}` : word;
+        if (next.length > width && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = next;
+        }
+        if (lines.length === maxLines) break;
+      }
+      if (line && lines.length < maxLines) lines.push(line);
+      if (words.join(" ").length > lines.join(" ").length && lines.length) {
+        lines[lines.length - 1] = shorten(lines[lines.length - 1], width);
+      }
+      return lines.length ? lines : [""];
+    }
+
+    function normalizeGraphSyntax(value) {
+      return String(value || "")
+        .replace(/\u00e2\u20ac\u00a2/g, "\u2022")
+        .replace(/\u00e2\u20ac\u201d/g, "\u2014")
+        .replace(/\u00e2\u2020\u2019/g, "\u2192");
+    }
+
+    function stripAccents(value) {
+      return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+    }
+
+    function nodeKind(type) {
+      const t = String(type || "").toUpperCase();
+      if (t.includes("LAW")) return "law";
+      if (t.includes("ARTICLE_REF")) return "ref";
+      if (t.includes("ARTICLE")) return "article";
+      if (t.includes("CLAUSE")) return "clause";
+      return "entity";
+    }
+
+    async function openNeo4jGraph(articleIds) {
+      const ids = Array.from(new Set((articleIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
+      els.graphModal.hidden = false;
+      els.graphMeta.textContent = ids.length ? ids.join(", ") : "No article ids";
+      els.graphStage.innerHTML = `<div class="graph-empty">Loading Neo4j subgraph...</div>`;
+      els.graphInspector.innerHTML = `
+        <h3>Selection</h3>
+        <p>Click a node or relationship to inspect Neo4j properties.</p>
+      `;
+
+      if (!ids.length) {
+        els.graphStage.innerHTML = `<div class="graph-empty">No graph_article_ids found in this response.</div>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(apiUrl("/api/graph/subgraph"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ article_ids: ids, limit: 180 }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status}: ${text.slice(0, 180)}`);
+        }
+        const graph = await res.json();
+        renderNeo4jGraph(graph, ids);
+      } catch (ex) {
+        const msg = ex instanceof Error ? ex.message : String(ex);
+        els.graphStage.innerHTML = `<div class="graph-empty">Cannot load Neo4j graph: ${escapeHtml(msg)}</div>`;
+      }
+    }
+
+    function closeNeo4jGraph() {
+      els.graphModal.hidden = true;
+      els.graphStage.innerHTML = "";
+      currentGraphView = { nodes: new Map(), edges: new Map() };
+    }
+
+    function renderNeo4jGraph(graph, articleIds) {
+      const selectedArticles = new Set(articleIds);
+      const nodes = (graph.nodes || []).map((node, index) => ({
+        ...node,
+        index,
+        kind: neoKind(node.labels),
+        r: neoRadius(node.labels),
+        color: neoColor(node.labels),
+      }));
+      const nodeIds = new Set(nodes.map((node) => node.id));
+      const edges = (graph.edges || [])
+        .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+        .map((edge, index) => ({ ...edge, index }));
+
+      currentGraphView = {
+        nodes: new Map(nodes.map((node) => [node.id, node])),
+        edges: new Map(edges.map((edge) => [edge.id, edge])),
+      };
+
+      if (!nodes.length) {
+        els.graphStage.innerHTML = `<div class="graph-empty">Neo4j returned an empty subgraph.</div>`;
+        return;
+      }
+
+      const layout = forceLayout(nodes, edges, selectedArticles);
+      const markerId = `neo-arrow-${genId()}`;
+      const width = layout.width;
+      const height = layout.height;
+
+      const edgeHtml = edges.map((edge) => {
+        const from = layout.nodeMap.get(edge.source);
+        const to = layout.nodeMap.get(edge.target);
+        if (!from || !to) return "";
+        const angle = Math.atan2(to.y - from.y, to.x - from.x);
+        const x1 = from.x + Math.cos(angle) * from.r;
+        const y1 = from.y + Math.sin(angle) * from.r;
+        const x2 = to.x - Math.cos(angle) * (to.r + 5);
+        const y2 = to.y - Math.sin(angle) * (to.r + 5);
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2;
+        return `
+          <g>
+            <line class="neo-edge" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" marker-end="url(#${markerId})" data-edge-id="${escapeHtml(edge.id)}"></line>
+            <text class="neo-edge-label" x="${mx.toFixed(1)}" y="${(my - 6).toFixed(1)}" text-anchor="middle">${escapeHtml(shorten(edge.type, 26))}</text>
+          </g>
+        `;
+      }).join("");
+
+      const nodeHtml = nodes.map((node) => {
+        const labels = Array.isArray(node.labels) ? node.labels : [];
+        const type = labels[0] || "NODE";
+        const titleLines = wrapLabel(node.label || node.id, 13, 2);
+        return `
+          <g class="neo-node" transform="translate(${node.x.toFixed(1)} ${node.y.toFixed(1)})" data-node-id="${escapeHtml(node.id)}">
+            <circle r="${node.r}" fill="${node.color}"></circle>
+            <text class="neo-label-type" y="${(-node.r + 16).toFixed(1)}">${escapeHtml(shorten(type, 14))}</text>
+            ${titleLines.map((line, i) => (
+              `<text y="${(-6 + i * 14).toFixed(1)}">${escapeHtml(line)}</text>`
+            )).join("")}
+          </g>
+        `;
+      }).join("");
+
+      els.graphMeta.textContent = `${nodes.length} nodes, ${edges.length} relationships · ${articleIds.join(", ")}`;
+      els.graphStage.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Neo4j subgraph">
+          <defs>
+            <marker id="${markerId}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#77736d"></path>
+            </marker>
+          </defs>
+          ${edgeHtml}
+          ${nodeHtml}
+        </svg>
+      `;
+      els.graphStage.scrollLeft = Math.max(0, (width - els.graphStage.clientWidth) / 2);
+      els.graphStage.scrollTop = Math.max(0, (height - els.graphStage.clientHeight) / 2);
+    }
+
+    function forceLayout(nodes, edges, selectedArticles) {
+      const width = Math.max(1180, Math.min(1900, 860 + nodes.length * 18));
+      const height = Math.max(760, Math.min(1400, 560 + nodes.length * 12));
+      const cx = width / 2;
+      const cy = height / 2;
+      const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+
+      nodes.forEach((node, index) => {
+        const seed = hashString(node.id);
+        const angle = (seed % 6283) / 1000;
+        const ring = selectedArticles.has(node.id) || node.kind === "article" ? 90 : 230 + (seed % 260);
+        node.x = cx + Math.cos(angle) * ring + (index % 5) * 8;
+        node.y = cy + Math.sin(angle) * ring + (index % 7) * 8;
+        if (selectedArticles.has(node.id)) {
+          node.x = cx + (index % 3 - 1) * 115;
+          node.y = cy + (Math.floor(index / 3) % 3 - 1) * 95;
+        }
+      });
+
+      for (let step = 0; step < 170; step += 1) {
+        for (let i = 0; i < nodes.length; i += 1) {
+          const a = nodes[i];
+          for (let j = i + 1; j < nodes.length; j += 1) {
+            const b = nodes[j];
+            let dx = a.x - b.x;
+            let dy = a.y - b.y;
+            let d2 = dx * dx + dy * dy;
+            if (d2 < 1) {
+              dx = 1;
+              dy = 1;
+              d2 = 2;
+            }
+            const minDist = a.r + b.r + 28;
+            const force = Math.min(7, (minDist * minDist) / d2);
+            const d = Math.sqrt(d2);
+            const fx = (dx / d) * force;
+            const fy = (dy / d) * force;
+            if (!selectedArticles.has(a.id)) { a.x += fx; a.y += fy; }
+            if (!selectedArticles.has(b.id)) { b.x -= fx; b.y -= fy; }
+          }
+        }
+
+        edges.forEach((edge) => {
+          const a = nodeMap.get(edge.source);
+          const b = nodeMap.get(edge.target);
+          if (!a || !b) return;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+          const target = 185;
+          const pull = (d - target) * 0.014;
+          const fx = (dx / d) * pull;
+          const fy = (dy / d) * pull;
+          if (!selectedArticles.has(a.id)) { a.x += fx; a.y += fy; }
+          if (!selectedArticles.has(b.id)) { b.x -= fx; b.y -= fy; }
+        });
+
+        nodes.forEach((node) => {
+          const gravity = selectedArticles.has(node.id) ? 0.08 : 0.012;
+          node.x += (cx - node.x) * gravity;
+          node.y += (cy - node.y) * gravity;
+          node.x = Math.max(node.r + 24, Math.min(width - node.r - 24, node.x));
+          node.y = Math.max(node.r + 24, Math.min(height - node.r - 24, node.y));
+        });
+      }
+
+      return { width, height, nodeMap };
+    }
+
+    function neoKind(labels) {
+      const set = new Set(Array.isArray(labels) ? labels : []);
+      if (set.has("LAW")) return "law";
+      if (set.has("CHAPTER")) return "chapter";
+      if (set.has("ARTICLE")) return "article";
+      if (set.has("CLAUSE")) return "clause";
+      return "entity";
+    }
+
+    function neoRadius(labels) {
+      const kind = neoKind(labels);
+      if (kind === "article") return 52;
+      if (kind === "law" || kind === "chapter") return 46;
+      if (kind === "clause") return 42;
+      return 39;
+    }
+
+    function neoColor(labels) {
+      const kind = neoKind(labels);
+      if (kind === "law") return "#7563d8";
+      if (kind === "chapter") return "#4f83cc";
+      if (kind === "article") return "#d97757";
+      if (kind === "clause") return "#4f9a77";
+      const first = (Array.isArray(labels) && labels[0]) || "";
+      const palette = ["#4aa3a2", "#b36fb2", "#c59645", "#668cc9", "#a76855", "#5b9a68"];
+      return palette[hashString(first) % palette.length];
+    }
+
+    function hashString(value) {
+      let h = 2166136261;
+      const text = String(value || "");
+      for (let i = 0; i < text.length; i += 1) {
+        h ^= text.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    function showGraphInspector(kind, item) {
+      const title = kind === "edge" ? item.type : (item.label || item.id);
+      const subtitle = kind === "edge"
+        ? `${item.source} -> ${item.target}`
+        : (Array.isArray(item.labels) ? item.labels.join(", ") : "NODE");
+      const props = kind === "edge"
+        ? { type: item.type, source: item.source, target: item.target, ...(item.properties || {}) }
+        : { id: item.id, labels: item.labels || [], ...(item.properties || {}) };
+      els.graphInspector.innerHTML = `
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(subtitle)}</p>
+        <div class="graph-props">
+          ${Object.entries(props).map(([key, value]) => `
+            <div class="graph-prop">
+              <div class="graph-prop-key">${escapeHtml(key)}</div>
+              <div class="graph-prop-value">${escapeHtml(formatProp(value))}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function formatProp(value) {
+      if (Array.isArray(value)) return value.join(", ");
+      if (value && typeof value === "object") return JSON.stringify(value);
+      return String(value ?? "");
+    }
+
+    function patchStreamingMessage(m) {
+      const root = document.querySelector(`[data-msg-id="${m.id}"]`);
+      if (!root) { render(); return; }
+
+      // Thinking card live update (only if scaffold already exists)
+      const thinkBody = root.querySelector(".think-body");
+      if (thinkBody) thinkBody.textContent = m.thinking || "";
+      const thinkLen = root.querySelector(".think-len");
+      if (thinkLen) thinkLen.textContent = `${(m.thinking || "").length.toLocaleString()} ký tự`;
+
+      // Answer content live update — replace, keep caret
+      const content = root.querySelector(".msg-content");
+      if (content) {
+        const caret = m.streaming ? '<span class="caret"></span>' : "";
+        content.innerHTML = renderMarkdown(m.answer || "") + caret;
+      }
+
+      requestAnimationFrame(() => {
+        els.chat.scrollTop = els.chat.scrollHeight;
+      });
+    }
+
+    function updateComposer() {
+      els.sendBtn.disabled = !els.input.value.trim() || state.sending;
+      const law = state.laws.find((l) => l.id === state.lawId);
+      els.composerHint.textContent = `${state.lawId ? `Đang lọc theo: ${law?.label || state.lawId}` : "Tất cả luật"} · thinking=${state.thinking} · context=${state.showContext ? "on" : "off"}`;
+    }
+
+    function autoGrowTextarea() {
+      els.input.style.height = "auto";
+      els.input.style.height = Math.min(els.input.scrollHeight, 220) + "px";
+    }
+
+    async function loadLaws() {
+      try {
+        const res = await fetch(apiUrl("/api/laws"));
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        state.laws = Array.isArray(data) ? data : [];
+      } catch (_) {
+        state.laws = [];
+      }
+      render();
+    }
+
+    async function send(raw) {
+      const query = String(raw ?? els.input.value).trim();
+      if (!query || state.sending) return;
+
+      els.input.value = "";
+      state.sending = true;
+      autoGrowTextarea();
+
+      // Push user message + streaming placeholder assistant message
+      const placeholder = {
+        id: genId(),
+        role: "assistant",
+        answer: "",
+        thinking: "",
+        refined: null,
+        intent: "",
+        thinking_used: false,
+        streaming: true,
+        context: undefined,
+      };
+      updateActive((c) => ({
+        ...c,
+        title: c.messages.length === 0 ? truncate(query, 40) : c.title,
+        messages: [
+          ...c.messages,
+          { role: "user", text: query },
+          placeholder,
+        ],
+      }));
+
+      // Find the live placeholder reference inside state
+      const findPlaceholder = () => {
+        const conv = activeConversation();
+        return conv?.messages.find((m) => m.id === placeholder.id);
+      };
+      const replacePlaceholderWithError = (msg) => {
+        updateActive((c) => {
+          const msgs = c.messages.slice();
+          for (let i = msgs.length - 1; i >= 0; i--) {
+            if (msgs[i].role === "assistant" && msgs[i].id === placeholder.id) {
+              msgs[i] = { role: "error", text: `Lỗi: ${msg}` };
+              break;
+            }
+          }
+          return { ...c, messages: msgs };
+        });
+      };
+
+      let hadThinking = false;
+      let hadAnswer = false;
+      let serverError = null;
+
+      try {
+        const res = await fetch(apiUrl("/api/chat/stream"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+          },
+          body: JSON.stringify({
+            query,
+            law_id: state.lawId || null,
+            thinking_mode: state.thinking,
+            include_context: state.showContext,
+          }),
+        });
+        if (!res.ok || !res.body) {
+          const errText = res.body ? await res.text() : "";
+          throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200)}`);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let sep;
+          while ((sep = buffer.indexOf("\n\n")) !== -1) {
+            const rawEvent = buffer.slice(0, sep);
+            buffer = buffer.slice(sep + 2);
+            const lines = rawEvent
+              .split("\n")
+              .map((l) => l.trim())
+              .filter((l) => l.startsWith("data:"))
+              .map((l) => l.slice(5).trim());
+            if (lines.length === 0) continue;
+            const dataStr = lines.join("");
+            if (!dataStr) continue;
+            let evt;
+            try { evt = JSON.parse(dataStr); } catch { continue; }
+
+            // Mutate the placeholder object in state directly.
+            const p = findPlaceholder();
+            if (!p) continue;
+
+            if (evt.type === "meta") {
+              p.refined = evt.refined;
+              p.intent = evt.intent;
+              p.thinking_used = !!evt.thinking_used;
+              if (state.showContext) {
+                p.context = {
+                  vector_context: evt.vector_context,
+                  graph_context: evt.graph_context,
+                  graph_article_ids: evt.graph_article_ids,
+                };
+              }
+              render();
+            } else if (evt.type === "thinking") {
+              p.thinking += evt.delta || "";
+              if (!hadThinking) {
+                hadThinking = true;
+                render();             // first time → render scaffold
+              } else {
+                patchStreamingMessage(p);
+              }
+            } else if (evt.type === "answer") {
+              p.answer += evt.delta || "";
+              if (!hadAnswer) {
+                hadAnswer = true;
+                render();             // first time → switch typing → content
+              } else {
+                patchStreamingMessage(p);
+              }
+            } else if (evt.type === "done") {
+              if (typeof evt.answer === "string") p.answer = evt.answer;
+              if (typeof evt.thinking === "string") p.thinking = evt.thinking;
+              p.streaming = false;
+              render();
+            } else if (evt.type === "error") {
+              serverError = evt.message || "Unknown error";
+            }
+          }
+        }
+
+        if (serverError) {
+          replacePlaceholderWithError(serverError);
+        } else {
+          const p = findPlaceholder();
+          if (p && p.streaming) {
+            p.streaming = false;
+            render();
+          }
+        }
+      } catch (ex) {
+        const msg = ex instanceof Error ? ex.message : String(ex);
+        replacePlaceholderWithError(msg);
+      } finally {
+        state.sending = false;
+        updateComposer();
+      }
+    }
+
+    els.newChatBtn.addEventListener("click", () => {
+      const c = newConversation();
+      state.conversations = [c, ...state.conversations];
+      state.activeId = c.id;
+      els.input.value = "";
+      render();
+    });
+
+    els.convList.addEventListener("click", (event) => {
+      const deleteBtn = event.target.closest("[data-delete-id]");
+      if (deleteBtn) {
+        const id = deleteBtn.dataset.deleteId;
+        const next = state.conversations.filter((c) => c.id !== id);
+        if (!next.length) {
+          const fresh = newConversation();
+          state.conversations = [fresh];
+          state.activeId = fresh.id;
+        } else {
+          state.conversations = next;
+          if (state.activeId === id) state.activeId = next[0].id;
+        }
+        render();
+        return;
+      }
+
+      const item = event.target.closest("[data-conv-id]");
+      if (item) {
+        state.activeId = item.dataset.convId;
+        render();
+      }
+    });
+
+    els.chatInner.addEventListener("click", (event) => {
+      const suggestion = event.target.closest("[data-suggestion]");
+      if (suggestion) send(suggestion.dataset.suggestion);
+
+      const graphOpen = event.target.closest("[data-graph-open]");
+      if (graphOpen) {
+        const ids = String(graphOpen.dataset.graphOpen || "")
+          .split("|")
+          .map((id) => id.trim())
+          .filter(Boolean);
+        openNeo4jGraph(ids);
+      }
+    });
+
+    els.graphClose.addEventListener("click", closeNeo4jGraph);
+
+    els.graphModal.addEventListener("click", (event) => {
+      if (event.target === els.graphModal) closeNeo4jGraph();
+    });
+
+    els.graphStage.addEventListener("click", (event) => {
+      const nodeEl = event.target.closest("[data-node-id]");
+      if (nodeEl) {
+        const node = currentGraphView.nodes.get(nodeEl.dataset.nodeId);
+        if (node) showGraphInspector("node", node);
+        return;
+      }
+      const edgeEl = event.target.closest("[data-edge-id]");
+      if (edgeEl) {
+        const edge = currentGraphView.edges.get(edgeEl.dataset.edgeId);
+        if (edge) showGraphInspector("edge", edge);
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !els.graphModal.hidden) closeNeo4jGraph();
+    });
+
+    els.thinkingBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.thinking = btn.dataset.thinking;
+        render();
+      });
+    });
+
+    els.contextBtn.addEventListener("click", () => {
+      state.showContext = !state.showContext;
+      render();
+    });
+
+    els.lawSelect.addEventListener("change", () => {
+      state.lawId = els.lawSelect.value;
+      render();
+    });
+
+    els.apiBase.addEventListener("change", () => {
+      state.apiBase = els.apiBase.value.trim() || "http://localhost:8000";
+      els.apiBase.value = state.apiBase;
+      localStorage.setItem("legal-chat-api-base", state.apiBase);
+      loadLaws();
+    });
+
+    els.input.addEventListener("input", () => {
+      autoGrowTextarea();
+      updateComposer();
+    });
+
+    els.input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        send();
+      }
+    });
+
+    els.sendBtn.addEventListener("click", () => send());
+
+    render();
+    loadLaws();
+  </script>
+</body>
+</html>

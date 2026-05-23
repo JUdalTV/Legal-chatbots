@@ -71,7 +71,10 @@ def check_faithfulness(
     ]
 
     try:
-        raw = llm.chat(messages, temperature=0.0, max_tokens=max_tokens)
+        raw = llm.chat(
+            messages, temperature=0.0, max_tokens=max_tokens,
+            enable_thinking=False,
+        )
         data = _extract_json(raw)
         results = data.get("results") or []
     except Exception as ex:

@@ -88,7 +88,10 @@ def refine_query(
         {"role": "user",   "content": user},
     ]
     try:
-        raw = llm.chat(messages, temperature=0.0, max_tokens=max_tokens)
+        raw = llm.chat(
+            messages, temperature=0.0, max_tokens=max_tokens,
+            enable_thinking=False,
+        )
         data = _extract_json(raw)
         refined   = (data.get("refined")   or "").strip() or query
         objective = (data.get("objective") or "").strip()
