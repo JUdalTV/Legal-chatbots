@@ -2,7 +2,13 @@
 FastAPI surface for the Hybrid Legal RAG service.
 
 Run locally:
-    uvicorn api.main:app --reload --port 8000
+    uvicorn api.main:app --port 8000
+
+KHÔNG dùng `--reload` khi đang chạy thử retrieval: mỗi lần file .py thay đổi,
+uvicorn tear down lifespan → re-instantiate HybridRAGService → reload
+Vietnamese_Embedding + Vietnamese_Reranker (mỗi model ~10-15s, sẽ thấy
+nhiều progress bar "Loading weights" trong log). Mở nhiều tab UI/chat
+KHÔNG gây reload — chỉ file edit + `--reload` mới gây reload.
 
 Endpoints:
     GET  /api/health         — liveness probe.

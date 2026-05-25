@@ -7,13 +7,22 @@ API:
     vecs = emb.encode(["text1", ...])      # list[list[float]]
     n    = emb.count_tokens("text")        # int — dùng cho chunker
     d    = emb.dim                         # vector dimension
+
+Module-level singleton: nhiều VectorRAGPipeline có cùng (device, use_half)
+sẽ dùng chung 1 SentenceTransformer trong RAM → không reload weights.
 """
 from __future__ import annotations
 
+import threading
 from typing import List, Optional
 
 import torch
 from sentence_transformers import SentenceTransformer
+
+
+# (device, use_half) → SentenceTransformer cache toàn process.
+_MODEL_CACHE: dict[tuple[str, bool], SentenceTransformer] = {}
+_MODEL_LOCK = threading.Lock()
 
 
 class Embedder:
@@ -38,20 +47,30 @@ class Embedder:
             return "cuda"
         return d or "cpu"
 
-    # ── Lazy load ──────────────────────────────────────────────────
+    # ── Lazy load (process-wide singleton) ─────────────────────────
     def _load(self) -> SentenceTransformer:
-        if self._model is None:
-            kwargs = {}
+        if self._model is not None:
+            return self._model
+        key = (self.device, self.use_half)
+        with _MODEL_LOCK:
+            cached = _MODEL_CACHE.get(key)
+            if cached is not None:
+                print(f"[Embedder] reuse cached {self.MODEL_NAME} on {self.device}")
+                self._model = cached
+                return self._model
+            print(f"[Embedder] LOADING {self.MODEL_NAME} on {self.device} (fp16={self.use_half})…")
+            kwargs: dict = {}
             if self.use_half:
-                kwargs["torch_dtype"] = torch.float16
-            self._model = SentenceTransformer(
+                kwargs["dtype"] = torch.float16  # `torch_dtype` deprecated
+            model = SentenceTransformer(
                 self.MODEL_NAME,
                 device=self.device,
                 trust_remote_code=True,
                 model_kwargs=kwargs,
             )
-            if self.use_half:
-                self._model.half()
+            _MODEL_CACHE[key] = model
+            self._model = model
+            print(f"[Embedder] LOADED  {self.MODEL_NAME}")
         return self._model
 
     # ── Encode ─────────────────────────────────────────────────────
@@ -81,4 +100,11 @@ class Embedder:
 
     @property
     def dim(self) -> int:
-        return int(self._load().get_sentence_embedding_dimension())
+        m = self._load()
+        getter = (
+            getattr(m, "get_embedding_dimension", None)
+            or getattr(m, "get_sentence_embedding_dimension", None)
+        )
+        if getter is None:
+            raise RuntimeError("SentenceTransformer missing embedding-dim getter")
+        return int(getter())

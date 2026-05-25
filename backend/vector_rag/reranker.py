@@ -13,14 +13,21 @@ Pipeline:
 """
 from __future__ import annotations
 
+import threading
 from typing import Any, List
 
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 
+# (device, use_half) → (tokenizer, model) cache toàn process — tránh load lại
+# weights khi có nhiều VectorRAGPipeline instance.
+_RERANK_CACHE: dict[tuple[str, bool], tuple[Any, Any]] = {}
+_RERANK_LOCK = threading.Lock()
+
+
 class Reranker:
-    """Lazy-load cross-encoder fp16."""
+    """Lazy-load cross-encoder fp16 với module-level singleton."""
 
     MODEL_NAME = "AITeamVN/Vietnamese_Reranker"
     MAX_LENGTH = 512
@@ -46,13 +53,26 @@ class Reranker:
     def _load(self) -> None:
         if self._mdl is not None:
             return
-        kwargs: dict[str, Any] = {"trust_remote_code": True}
-        if self.use_half:
-            kwargs["torch_dtype"] = torch.float16
-        self._tok = AutoTokenizer.from_pretrained(self.MODEL_NAME, trust_remote_code=True)
-        self._mdl = AutoModelForSequenceClassification.from_pretrained(
-            self.MODEL_NAME, **kwargs
-        ).eval().to(self.device)
+        key = (self.device, self.use_half)
+        with _RERANK_LOCK:
+            cached = _RERANK_CACHE.get(key)
+            if cached is not None:
+                print(f"[Reranker] reuse cached {self.MODEL_NAME} on {self.device}")
+                self._tok, self._mdl = cached
+                return
+            print(f"[Reranker] LOADING {self.MODEL_NAME} on {self.device} (fp16={self.use_half})…")
+            kwargs: dict[str, Any] = {"trust_remote_code": True}
+            if self.use_half:
+                kwargs["dtype"] = torch.float16  # `torch_dtype` deprecated
+            tok = AutoTokenizer.from_pretrained(
+                self.MODEL_NAME, trust_remote_code=True,
+            )
+            mdl = AutoModelForSequenceClassification.from_pretrained(
+                self.MODEL_NAME, **kwargs,
+            ).eval().to(self.device)
+            _RERANK_CACHE[key] = (tok, mdl)
+            self._tok, self._mdl = tok, mdl
+            print(f"[Reranker] LOADED  {self.MODEL_NAME}")
 
     # ────────────────────────────────────────────────────────────────
     @torch.no_grad()

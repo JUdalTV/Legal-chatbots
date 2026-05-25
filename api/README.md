@@ -14,11 +14,19 @@ pip install -r api/requirements.txt
 Đảm bảo Qdrant + Neo4j + LLM endpoint đã sẵn sàng (xem `backend/.env`).
 
 ```bash
-uvicorn api.main:app --reload --port 8000
+uvicorn api.main:app --port 8000
 ```
 
 Service khởi tạo `HybridRAGService` 1 lần ở startup (load reranker / embeddings / Neo4j),
-nên lần đầu sẽ chậm. Sau đó mỗi request `/api/chat` chỉ trả ngay kết quả.
+nên lần đầu sẽ chậm (~10-15s). Sau đó mỗi request `/api/chat` chỉ trả ngay kết quả,
+mở bao nhiêu tab UI cũng dùng chung instance đã warm.
+
+> ⚠️ **KHÔNG dùng `--reload` khi đang chạy thử retrieval.**
+> Mỗi lần bạn save bất kỳ file `.py` nào, uvicorn sẽ tear down lifespan và
+> re-instantiate `HybridRAGService` → load lại Vietnamese_Embedding +
+> Vietnamese_Reranker (~10-15s mỗi model). Trong log sẽ thấy "Loading weights"
+> hiện lại nhiều lần. Chỉ bật `--reload` khi đang edit API surface
+> (api/main.py, api/schemas.py) và chấp nhận chi phí reload.
 
 ## Endpoints
 

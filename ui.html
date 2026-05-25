@@ -21,6 +21,20 @@
       --accent-hover: #c46444;
       --accent-soft: rgba(217, 119, 87, 0.12);
       --danger: #e06c75;
+      --graph-backdrop: rgba(0, 0, 0, 0.68);
+      --graph-stage-bg: radial-gradient(ellipse at center, #232322 0%, #131312 100%);
+      --graph-edge: rgba(180, 178, 173, 0.42);
+      --graph-edge-label: rgba(220, 218, 213, 0.55);
+      --graph-edge-label-stroke: rgba(20, 20, 20, 0.85);
+      --graph-node-title: #ffffff;
+      --graph-node-title-stroke: rgba(0, 0, 0, 0.55);
+      --graph-node-type: rgba(220, 220, 220, 0.62);
+      --graph-node-type-stroke: rgba(20, 20, 20, 0.7);
+      --graph-floating-bg: rgba(20, 20, 20, 0.78);
+      --graph-zoom-bg: rgba(28, 28, 26, 0.85);
+      --graph-zoom-hover-bg: rgba(50, 50, 48, 0.9);
+      --graph-marker: rgba(180, 178, 173, 0.55);
+      --graph-dropped-shadow: rgba(255, 255, 255, 0.18);
       --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       --serif: "Source Serif Pro", Georgia, "Times New Roman", serif;
       --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
@@ -34,6 +48,46 @@
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
     }
+
+    :root[data-theme="light"] {
+      --bg: #faf9f7;
+      --bg-elevated: #f1efea;
+      --bg-sidebar: #f5f3ee;
+      --bg-input: #ffffff;
+      --bg-bubble-user: #ebe8e1;
+      --bg-code: #f3f0e8;
+      --text: #2a2826;
+      --text-muted: #5a5854;
+      --text-faint: #8a8884;
+      --border: #cfccc5;
+      --border-soft: #e2dfd8;
+      --accent: #c25e3c;
+      --accent-hover: #a84a2b;
+      --accent-soft: rgba(194, 94, 60, 0.12);
+      --danger: #c44d56;
+      --graph-backdrop: rgba(34, 30, 24, 0.32);
+      --graph-stage-bg: radial-gradient(ellipse at center, #fbf8f1 0%, #e9e4d8 100%);
+      --graph-edge: rgba(88, 83, 75, 0.42);
+      --graph-edge-label: rgba(64, 59, 52, 0.72);
+      --graph-edge-label-stroke: rgba(250, 248, 244, 0.9);
+      --graph-node-title: #2a2826;
+      --graph-node-title-stroke: rgba(255, 255, 255, 0.68);
+      --graph-node-type: rgba(58, 54, 49, 0.72);
+      --graph-node-type-stroke: rgba(255, 255, 255, 0.72);
+      --graph-floating-bg: rgba(255, 252, 246, 0.82);
+      --graph-zoom-bg: rgba(255, 252, 246, 0.9);
+      --graph-zoom-hover-bg: rgba(241, 237, 229, 0.96);
+      --graph-marker: rgba(88, 83, 75, 0.58);
+      --graph-dropped-shadow: rgba(80, 72, 62, 0.18);
+      color-scheme: light;
+    }
+    :root[data-theme="light"] ::-webkit-scrollbar-thumb { background: #cfccc5; }
+    :root[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #b6b2aa; }
+    :root[data-theme="light"] .send-btn { color: #ffffff; }
+    :root[data-theme="light"] .sidebar-logo { color: #ffffff; }
+    :root[data-theme="light"] .neo-edge-label,
+    :root[data-theme="light"] .neo-node text.neo-title,
+    :root[data-theme="light"] .neo-node .neo-label-type { paint-order: stroke; }
 
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; width: 100%; }
@@ -169,6 +223,79 @@
       color: var(--danger);
       background: rgba(224, 108, 117, 0.12);
     }
+    .conv-item-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .conv-item:hover .conv-item-actions { opacity: 1; }
+    .conv-item-action {
+      font-size: 13px;
+      color: var(--text-faint);
+      padding: 3px 5px;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    .conv-item-action:hover {
+      color: var(--text);
+      background: var(--border-soft);
+    }
+    .conv-item-action.del:hover {
+      color: var(--danger);
+      background: rgba(224, 108, 117, 0.12);
+    }
+    .conv-item-input {
+      flex: 1;
+      min-width: 0;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: var(--bg-input);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      font-size: 13.5px;
+      font-family: inherit;
+      outline: none;
+    }
+    .chat-title.editable { cursor: text; }
+    .chat-title-input {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--bg-input);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 2px 8px;
+      min-width: 140px;
+      font-family: inherit;
+      outline: none;
+    }
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-soft);
+      color: var(--text-muted);
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .icon-btn:hover {
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .icon-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
 
     .sidebar-footer {
       border-top: 1px solid var(--border-soft);
@@ -258,11 +385,54 @@
     }
     .select:hover, .api-input:hover { border-color: var(--border); }
 
+    .chat-wrap {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
     .chat {
       flex: 1;
       overflow-y: auto;
+      overflow-anchor: none;
+      scroll-behavior: auto;
       display: flex;
       flex-direction: column;
+    }
+    .scroll-bottom-btn {
+      position: absolute;
+      right: 24px;
+      bottom: 20px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 0.18s, transform 0.18s, color 0.15s, border-color 0.15s;
+      z-index: 5;
+    }
+    .scroll-bottom-btn.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .scroll-bottom-btn:hover { color: var(--text); border-color: var(--accent); }
+    .scroll-bottom-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     .chat-inner {
       width: 100%;
@@ -371,6 +541,13 @@
     }
     .msg.assistant .msg-content.markdown {
       white-space: normal;
+    }
+    .msg.assistant .msg-content.streaming-markdown {
+      white-space: normal;
+    }
+    .streaming-markdown .live-md-done:empty,
+    .streaming-markdown .live-md-tail:empty {
+      display: none;
     }
     .markdown h1,
     .markdown h2,
@@ -605,7 +782,7 @@
       position: fixed;
       inset: 0;
       z-index: 100;
-      background: rgba(0, 0, 0, 0.68);
+      background: var(--graph-backdrop);
       display: grid;
       place-items: center;
       padding: 22px;
@@ -673,59 +850,184 @@
       position: relative;
       min-width: 0;
       min-height: 0;
-      overflow: auto;
-      background:
-        linear-gradient(rgba(255,255,255,0.026) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px),
-        var(--bg-code);
-      background-size: 28px 28px;
+      overflow: hidden;
+      background: var(--graph-stage-bg);
+      cursor: grab;
     }
-    .graph-stage svg {
+    .graph-stage.panning { cursor: grabbing; }
+    .graph-stage svg.graph-canvas-svg {
       display: block;
-      min-width: 1180px;
-      min-height: 760px;
+      width: 100%;
+      height: 100%;
+      user-select: none;
     }
     .neo-edge {
-      stroke: #77736d;
-      stroke-width: 1.55;
-      opacity: 0.9;
+      stroke: var(--graph-edge);
+      stroke-width: 1.3;
+      opacity: 0.95;
       cursor: pointer;
+      transition: stroke 0.12s;
     }
-    .neo-edge:hover { stroke: var(--accent); }
+    .neo-edge-group:hover .neo-edge { stroke: var(--accent); }
+    .neo-edge-group:hover .neo-edge-label { fill: var(--text); opacity: 1; }
+    .neo-marker { fill: var(--graph-marker); }
     .neo-edge-label {
       font-family: var(--mono);
-      font-size: 10px;
-      fill: var(--text-muted);
+      font-size: 9.5px;
+      fill: var(--graph-edge-label);
       paint-order: stroke;
-      stroke: var(--bg-code);
-      stroke-width: 4px;
+      stroke: var(--graph-edge-label-stroke);
+      stroke-width: 3px;
       stroke-linejoin: round;
       pointer-events: none;
+      letter-spacing: 0.3px;
     }
-    .neo-node { cursor: pointer; }
-    .neo-node circle {
-      stroke: rgba(255,255,255,0.22);
-      stroke-width: 1.5;
-      filter: drop-shadow(0 5px 12px rgba(0,0,0,0.28));
+    .neo-node { cursor: grab; }
+    .neo-node.dragging { cursor: grabbing; }
+    .neo-node .neo-halo {
+      opacity: 0.18;
+      pointer-events: none;
+      transition: opacity 0.18s, r 0.18s;
     }
-    .neo-node:hover circle {
-      stroke: var(--accent);
-      stroke-width: 2.5;
+    .neo-node:hover .neo-halo { opacity: 0.34; }
+    .neo-node.dragging .neo-halo,
+    .neo-node.pinned .neo-halo { opacity: 0.42; }
+    .neo-node circle.neo-body {
+      stroke-width: 2.4;
+      transition: stroke-width 0.12s;
     }
-    .neo-node text {
-      fill: #f4f1ec;
+    .neo-node:hover circle.neo-body { stroke-width: 3; }
+    .neo-node.pinned circle.neo-body {
+      stroke-dasharray: 5 4;
+      stroke-width: 2.4;
+    }
+    .neo-node.dropped circle.neo-body {
+      stroke-width: 2.8;
+      filter: drop-shadow(0 0 6px var(--graph-dropped-shadow));
+    }
+    .neo-node.dragging circle.neo-body {
+      stroke-width: 3.4;
+    }
+    .neo-node text.neo-title {
+      fill: var(--graph-node-title);
       font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
       text-anchor: middle;
       pointer-events: none;
+      text-transform: uppercase;
+      paint-order: stroke;
+      stroke: var(--graph-node-title-stroke);
+      stroke-width: 2.2px;
+      stroke-linejoin: round;
     }
     .neo-node .neo-label-type {
-      fill: rgba(255,255,255,0.72);
+      fill: var(--graph-node-type);
       font-family: var(--mono);
       font-size: 8.5px;
-      font-weight: 500;
-      letter-spacing: 0.2px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      text-anchor: middle;
+      pointer-events: none;
+      paint-order: stroke;
+      stroke: var(--graph-node-type-stroke);
+      stroke-width: 2.5px;
+      stroke-linejoin: round;
+    }
+
+    .graph-legend {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 2;
+      background: var(--graph-floating-bg);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 11.5px;
+      color: var(--text);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      pointer-events: none;
+      user-select: none;
+      max-width: 200px;
+    }
+    .graph-legend h4 {
+      margin: 0 0 8px;
+      font-size: 10px;
+      letter-spacing: 1.6px;
+      color: var(--text-faint);
+      font-weight: 600;
+    }
+    .graph-legend ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+    .graph-legend li {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .graph-legend .legend-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.4),
+                  inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+      flex-shrink: 0;
+    }
+
+    .graph-hint {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 2;
+      background: var(--graph-floating-bg);
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.55;
+      text-align: right;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      max-width: 280px;
+    }
+
+    .graph-zoom-controls {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .graph-zoom-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--graph-zoom-bg);
+      border: 1px solid var(--border-soft);
+      color: var(--text-muted);
+      font-size: 18px;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .graph-zoom-btn:hover {
+      color: var(--text);
+      border-color: var(--border);
+      background: var(--graph-zoom-hover-bg);
     }
     .graph-inspector {
       border-left: 1px solid var(--border-soft);
@@ -951,9 +1253,12 @@
     <main class="main">
       <header class="topbar">
         <div class="topbar-left">
-          <div id="chatTitle" class="chat-title">New chat</div>
+          <div id="chatTitle" class="chat-title editable" title="Double-click để đổi tên">New chat</div>
         </div>
         <div class="topbar-right">
+          <button id="themeBtn" class="icon-btn" type="button" title="Đổi chế độ sáng/tối">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          </button>
           <input id="apiBase" class="api-input" title="API backend base URL" />
 
           <select id="lawSelect" class="select" title="Lọc theo luật">
@@ -974,8 +1279,13 @@
         </div>
       </header>
 
-      <div id="chat" class="chat">
-        <div id="chatInner" class="chat-inner"></div>
+      <div class="chat-wrap">
+        <div id="chat" class="chat">
+          <div id="chatInner" class="chat-inner"></div>
+        </div>
+        <button id="scrollBottomBtn" class="scroll-bottom-btn" type="button" title="Cuộn xuống dưới">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
       </div>
 
       <div class="composer-wrap">
@@ -1029,9 +1339,15 @@
       input: "",
       sending: false,
       apiBase: localStorage.getItem("legal-chat-api-base") || "http://localhost:8000",
+      theme: localStorage.getItem("legal-chat-theme") || "dark",
+      stuckToBottom: true,
     };
     state.activeId = state.conversations[0].id;
+    document.documentElement.dataset.theme = state.theme;
     let currentGraphView = { nodes: new Map(), edges: new Map() };
+    let graphSimHandle = null;
+    let graphViewport = { scale: 1, tx: 0, ty: 0 };
+    let graphSuppressClick = false;
 
     const els = {
       convList: document.getElementById("convList"),
@@ -1051,6 +1367,8 @@
       graphInspector: document.getElementById("graphInspector"),
       graphClose: document.getElementById("graphClose"),
       thinkingBtns: Array.from(document.querySelectorAll("[data-thinking]")),
+      themeBtn: document.getElementById("themeBtn"),
+      scrollBottomBtn: document.getElementById("scrollBottomBtn"),
     };
 
     els.apiBase.value = state.apiBase;
@@ -1222,6 +1540,69 @@
         .join("");
     }
 
+    function renderStreamingMarkdown(value, showCaret = true) {
+      const parts = splitStreamingMarkdown(value);
+      return `
+        <div class="live-md-done" data-done-len="${parts.done.length}">${parts.done ? renderMarkdown(parts.done) : ""}</div>
+        <div class="live-md-tail">${parts.tail ? renderMarkdown(parts.tail) : ""}</div>
+        ${showCaret ? '<span class="caret"></span>' : ""}
+      `;
+    }
+
+    function updateStreamingMarkdown(el, value, showCaret = true) {
+      const parts = splitStreamingMarkdown(value);
+      let done = el.querySelector(".live-md-done");
+      let tail = el.querySelector(".live-md-tail");
+      if (!done || !tail) {
+        el.innerHTML = renderStreamingMarkdown(value, showCaret);
+        return;
+      }
+
+      const doneLen = Number(done.dataset.doneLen || "0");
+      if (doneLen !== parts.done.length) {
+        done.innerHTML = parts.done ? renderMarkdown(parts.done) : "";
+        done.dataset.doneLen = String(parts.done.length);
+      }
+
+      const tailHtml = parts.tail ? renderMarkdown(parts.tail) : "";
+      if (tail._tailSource !== parts.tail) {
+        tail.innerHTML = tailHtml;
+        tail._tailSource = parts.tail;
+      }
+
+      const hasCaret = !!el.querySelector(":scope > .caret");
+      if (showCaret && !hasCaret) {
+        el.insertAdjacentHTML("beforeend", '<span class="caret"></span>');
+      } else if (!showCaret && hasCaret) {
+        el.querySelector(":scope > .caret")?.remove();
+      }
+    }
+
+    function splitStreamingMarkdown(value) {
+      const text = String(value ?? "").replace(/\r\n?/g, "\n");
+      if (!text) return { done: "", tail: "" };
+
+      let boundary = text.lastIndexOf("\n\n");
+      if (boundary !== -1) {
+        boundary += 2;
+      } else if (text.length > 1600) {
+        const stable = text.slice(0, Math.max(0, text.length - 320));
+        boundary = Math.max(
+          stable.lastIndexOf(". "),
+          stable.lastIndexOf(".\n"),
+          stable.lastIndexOf("; "),
+          stable.lastIndexOf(": "),
+        );
+        if (boundary !== -1) boundary += 1;
+      }
+
+      if (boundary <= 0) return { done: "", tail: text };
+      return {
+        done: text.slice(0, boundary).trimEnd(),
+        tail: text.slice(boundary).replace(/^\n+/, ""),
+      };
+    }
+
     function apiUrl(path) {
       return state.apiBase.replace(/\/+$/, "") + path;
     }
@@ -1241,16 +1622,35 @@
       renderMessages();
       renderControls();
       updateComposer();
+      scheduleScrollSync();
+    }
+
+    let scrollSyncQueued = false;
+    function scheduleScrollSync() {
+      if (scrollSyncQueued) return;
+      scrollSyncQueued = true;
       requestAnimationFrame(() => {
-        els.chat.scrollTop = els.chat.scrollHeight;
+        scrollSyncQueued = false;
+        if (state.stuckToBottom) {
+          els.chat.scrollTop = els.chat.scrollHeight;
+        }
+        syncScrollBottomBtn();
       });
+    }
+
+    function syncScrollBottomBtn() {
+      const distance = els.chat.scrollHeight - els.chat.scrollTop - els.chat.clientHeight;
+      els.scrollBottomBtn.classList.toggle("visible", distance > 80);
     }
 
     function renderConversations() {
       els.convList.innerHTML = state.conversations.map((c) => `
         <div class="conv-item ${c.id === state.activeId ? "active" : ""}" data-conv-id="${escapeHtml(c.id)}">
-          <div class="conv-item-title">${escapeHtml(c.title)}</div>
-          <button class="conv-item-del" title="Xóa" data-delete-id="${escapeHtml(c.id)}">×</button>
+          <div class="conv-item-title" title="Double-click để đổi tên">${escapeHtml(c.title)}</div>
+          <div class="conv-item-actions">
+            <button class="conv-item-action" title="Đổi tên" data-rename-id="${escapeHtml(c.id)}">✎</button>
+            <button class="conv-item-action del" title="Xóa" data-delete-id="${escapeHtml(c.id)}">×</button>
+          </div>
         </div>
       `).join("");
     }
@@ -1279,8 +1679,8 @@
           <div class="empty-state">
             <h2>Hỏi gì về luật Viễn thông, CNTT, An ninh mạng?</h2>
             <p>
-              Pipeline kết hợp Vector RAG (Qdrant) + Graph RAG (Neo4j) + LLM.
-              Câu suy luận có thể bật <code>thinking</code> để mô hình lập luận sâu hơn.
+              Sự kết hợp Vector RAG (Qdrant) + Graph RAG (Neo4j) + LLM reasoning.
+              Câu phức tạp có thể bật <code>thinking</code> để mô hình lập luận sâu hơn.
             </p>
             <div class="suggestion-grid">
               ${SUGGESTIONS.map((s) => `
@@ -1322,6 +1722,9 @@
       const showThinkingLive = m.streaming && hasThinking && !m.answer;
       const showTypingDots = m.streaming && !m.answer && !hasThinking;
       const showCaret = m.streaming && m.answer;
+      const answerHtml = m.streaming
+        ? `<div class="msg-content markdown streaming-markdown" data-live-md>${renderStreamingMarkdown(m.answer || "", showCaret)}</div>`
+        : `<div class="msg-content markdown">${renderMarkdown(m.answer || "")}</div>`;
 
       return `
         <div class="msg assistant" data-msg-id="${escapeHtml(m.id || "")}">
@@ -1335,7 +1738,7 @@
           ${hasThinking ? thinkHtml(m, showThinkingLive) : ""}
           ${showTypingDots
             ? `<div class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`
-            : `<div class="msg-content markdown">${renderMarkdown(m.answer || "")}${showCaret ? '<span class="caret"></span>' : ""}</div>`
+            : answerHtml
           }
           ${hasContext ? contextHtml(m.context) : ""}
         </div>
@@ -1673,12 +2076,15 @@
     }
 
     function closeNeo4jGraph() {
+      stopGraphSimulation();
       els.graphModal.hidden = true;
       els.graphStage.innerHTML = "";
       currentGraphView = { nodes: new Map(), edges: new Map() };
+      graphViewport = { scale: 1, tx: 0, ty: 0 };
     }
 
     function renderNeo4jGraph(graph, articleIds) {
+      stopGraphSimulation();
       const selectedArticles = new Set(articleIds);
       const nodes = (graph.nodes || []).map((node, index) => ({
         ...node,
@@ -1686,6 +2092,11 @@
         kind: neoKind(node.labels),
         r: neoRadius(node.labels),
         color: neoColor(node.labels),
+        vx: 0,
+        vy: 0,
+        fx: null,
+        fy: null,
+        pinned: selectedArticles.has(node.id),
       }));
       const nodeIds = new Set(nodes.map((node) => node.id));
       const edges = (graph.edges || [])
@@ -1702,128 +2113,469 @@
         return;
       }
 
-      const layout = forceLayout(nodes, edges, selectedArticles);
-      const markerId = `neo-arrow-${genId()}`;
-      const width = layout.width;
-      const height = layout.height;
-
-      const edgeHtml = edges.map((edge) => {
-        const from = layout.nodeMap.get(edge.source);
-        const to = layout.nodeMap.get(edge.target);
-        if (!from || !to) return "";
-        const angle = Math.atan2(to.y - from.y, to.x - from.x);
-        const x1 = from.x + Math.cos(angle) * from.r;
-        const y1 = from.y + Math.sin(angle) * from.r;
-        const x2 = to.x - Math.cos(angle) * (to.r + 5);
-        const y2 = to.y - Math.sin(angle) * (to.r + 5);
-        const mx = (x1 + x2) / 2;
-        const my = (y1 + y2) / 2;
-        return `
-          <g>
-            <line class="neo-edge" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" marker-end="url(#${markerId})" data-edge-id="${escapeHtml(edge.id)}"></line>
-            <text class="neo-edge-label" x="${mx.toFixed(1)}" y="${(my - 6).toFixed(1)}" text-anchor="middle">${escapeHtml(shorten(edge.type, 26))}</text>
-          </g>
-        `;
-      }).join("");
-
-      const nodeHtml = nodes.map((node) => {
-        const labels = Array.isArray(node.labels) ? node.labels : [];
-        const type = labels[0] || "NODE";
-        const titleLines = wrapLabel(node.label || node.id, 13, 2);
-        return `
-          <g class="neo-node" transform="translate(${node.x.toFixed(1)} ${node.y.toFixed(1)})" data-node-id="${escapeHtml(node.id)}">
-            <circle r="${node.r}" fill="${node.color}"></circle>
-            <text class="neo-label-type" y="${(-node.r + 16).toFixed(1)}">${escapeHtml(shorten(type, 14))}</text>
-            ${titleLines.map((line, i) => (
-              `<text y="${(-6 + i * 14).toFixed(1)}">${escapeHtml(line)}</text>`
-            )).join("")}
-          </g>
-        `;
-      }).join("");
-
-      els.graphMeta.textContent = `${nodes.length} nodes, ${edges.length} relationships · ${articleIds.join(", ")}`;
-      els.graphStage.innerHTML = `
-        <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Neo4j subgraph">
-          <defs>
-            <marker id="${markerId}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#77736d"></path>
-            </marker>
-          </defs>
-          ${edgeHtml}
-          ${nodeHtml}
-        </svg>
-      `;
-      els.graphStage.scrollLeft = Math.max(0, (width - els.graphStage.clientWidth) / 2);
-      els.graphStage.scrollTop = Math.max(0, (height - els.graphStage.clientHeight) / 2);
-    }
-
-    function forceLayout(nodes, edges, selectedArticles) {
-      const width = Math.max(1180, Math.min(1900, 860 + nodes.length * 18));
-      const height = Math.max(760, Math.min(1400, 560 + nodes.length * 12));
+      const stageRect = els.graphStage.getBoundingClientRect();
+      const width = stageRect.width || 1200;
+      const height = stageRect.height || 800;
       const cx = width / 2;
       const cy = height / 2;
-      const nodeMap = new Map(nodes.map((node) => [node.id, node]));
 
-      nodes.forEach((node, index) => {
-        const seed = hashString(node.id);
-        const angle = (seed % 6283) / 1000;
-        const ring = selectedArticles.has(node.id) || node.kind === "article" ? 90 : 230 + (seed % 260);
-        node.x = cx + Math.cos(angle) * ring + (index % 5) * 8;
-        node.y = cy + Math.sin(angle) * ring + (index % 7) * 8;
-        if (selectedArticles.has(node.id)) {
-          node.x = cx + (index % 3 - 1) * 115;
-          node.y = cy + (Math.floor(index / 3) % 3 - 1) * 95;
-        }
+      // Seed initial positions in concentric rings — pinned articles at center.
+      const pinnedNodes = nodes.filter((n) => n.pinned);
+      const otherNodes = nodes.filter((n) => !n.pinned);
+      pinnedNodes.forEach((n, i) => {
+        const a = (i / Math.max(1, pinnedNodes.length)) * Math.PI * 2;
+        n.x = cx + Math.cos(a) * (pinnedNodes.length > 1 ? 70 : 0);
+        n.y = cy + Math.sin(a) * (pinnedNodes.length > 1 ? 70 : 0);
+        n.fx = n.x;
+        n.fy = n.y;
+      });
+      otherNodes.forEach((n, i) => {
+        const seed = hashString(n.id);
+        const angle = (seed % 6283) / 1000 + i * 0.15;
+        const ring = 180 + (seed % 240);
+        n.x = cx + Math.cos(angle) * ring;
+        n.y = cy + Math.sin(angle) * ring;
       });
 
-      for (let step = 0; step < 170; step += 1) {
-        for (let i = 0; i < nodes.length; i += 1) {
+      const markerId = `neo-arrow-${genId()}`;
+      graphViewport = { scale: 1, tx: 0, ty: 0 };
+
+      els.graphMeta.textContent =
+        `${nodes.length} nodes, ${edges.length} relationships · ${articleIds.join(", ")}`;
+
+      els.graphStage.innerHTML = `
+        <svg class="graph-canvas-svg" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="${markerId}" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto">
+              <path class="neo-marker" d="M 0 0 L 10 5 L 0 10 z"></path>
+            </marker>
+          </defs>
+          <g class="graph-canvas" data-canvas></g>
+        </svg>
+        <div class="graph-legend">
+          <h4>NODE TYPES</h4>
+          <ul>${buildLegendItems(nodes)}</ul>
+        </div>
+        <div class="graph-hint">
+          ☉ Kéo node để di chuyển (node sẽ ở yên tại vị trí mới)<br/>
+          Scroll = zoom &nbsp;·&nbsp; Double-click = thả node về simulation &nbsp;·&nbsp; ⟲ = revert
+        </div>
+        <div class="graph-zoom-controls">
+          <button class="graph-zoom-btn" data-zoom="in" type="button" title="Zoom in">+</button>
+          <button class="graph-zoom-btn" data-zoom="out" type="button" title="Zoom out">−</button>
+          <button class="graph-zoom-btn" data-zoom="revert" type="button"
+                  title="Revert (đưa về trạng thái ban đầu)" style="font-size:14px;">⟲</button>
+        </div>
+      `;
+
+      const svg = els.graphStage.querySelector("svg.graph-canvas-svg");
+      const canvas = els.graphStage.querySelector("[data-canvas]");
+      const nodeEls = new Map();
+      const edgeEls = new Map();
+
+      // Build edge groups
+      edges.forEach((edge) => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "neo-edge-group");
+        g.setAttribute("data-edge-id", edge.id);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("class", "neo-edge");
+        line.setAttribute("marker-end", `url(#${markerId})`);
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("class", "neo-edge-label");
+        label.setAttribute("text-anchor", "middle");
+        label.textContent = shorten(edge.type, 26);
+        g.appendChild(line);
+        g.appendChild(label);
+        canvas.appendChild(g);
+        edgeEls.set(edge.id, { line, label });
+      });
+
+      // Build node groups — dark translucent body w/ radial center glow + vivid ring + outer halo
+      nodes.forEach((node) => {
+        const labels = Array.isArray(node.labels) ? node.labels : [];
+        const type = labels[0] || "NODE";
+        const titleLines = wrapLabel(node.label || node.id, 12, 2);
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "neo-node" + (node.pinned ? " pinned" : ""));
+        g.setAttribute("data-node-id", node.id);
+
+        const safeId = escapeAttr(node.id);
+        const haloGradId = `halo-${safeId}`;
+        const bodyGradId = `body-${safeId}`;
+        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+        defs.innerHTML = `
+          <radialGradient id="${haloGradId}" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="${node.color}" stop-opacity="0.85"/>
+            <stop offset="55%"  stop-color="${node.color}" stop-opacity="0.30"/>
+            <stop offset="100%" stop-color="${node.color}" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="${bodyGradId}" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="${node.color}" stop-opacity="0.55"/>
+            <stop offset="55%"  stop-color="${node.color}" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="${node.color}" stop-opacity="0.05"/>
+          </radialGradient>
+        `;
+        g.appendChild(defs);
+
+        // Outer halo glow
+        const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        halo.setAttribute("class", "neo-halo");
+        halo.setAttribute("r", node.r + 14);
+        halo.setAttribute("fill", `url(#${haloGradId})`);
+        g.appendChild(halo);
+
+        // Bubble body: radial gradient (darker outer, brighter center) + vivid ring
+        const body = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        body.setAttribute("class", "neo-body");
+        body.setAttribute("r", node.r);
+        body.setAttribute("fill", `url(#${bodyGradId})`);
+        body.setAttribute("stroke", node.color);
+        g.appendChild(body);
+
+        // Title text inside bubble (uppercase, white, stroked for legibility)
+        titleLines.forEach((line, i) => {
+          const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          t.setAttribute("class", "neo-title");
+          const totalLines = titleLines.length;
+          const baseY = -((totalLines - 1) * 6) + i * 13;
+          t.setAttribute("y", baseY.toFixed(1));
+          t.textContent = line;
+          g.appendChild(t);
+        });
+
+        // Type label under bubble
+        const typeLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        typeLabel.setAttribute("class", "neo-label-type");
+        typeLabel.setAttribute("y", (node.r + 16).toFixed(1));
+        typeLabel.textContent = shorten(type, 16);
+        g.appendChild(typeLabel);
+
+        // Snapshot initial state for revert
+        node.initialX = node.x;
+        node.initialY = node.y;
+        node.originallyPinned = node.pinned;
+
+        canvas.appendChild(g);
+        nodeEls.set(node.id, g);
+      });
+
+      // ── Simulation (live force-directed) ─────────────────────────
+      let alpha = 1;
+      const REPULSION = 1200;
+      const SPRING_LEN = 170;
+      const SPRING_K = 0.04;
+      const GRAVITY = 0.012;
+      const DAMPING = 0.78;
+
+      function tick() {
+        // Repulsion
+        for (let i = 0; i < nodes.length; i++) {
           const a = nodes[i];
-          for (let j = i + 1; j < nodes.length; j += 1) {
+          for (let j = i + 1; j < nodes.length; j++) {
             const b = nodes[j];
             let dx = a.x - b.x;
             let dy = a.y - b.y;
             let d2 = dx * dx + dy * dy;
             if (d2 < 1) {
-              dx = 1;
-              dy = 1;
-              d2 = 2;
+              dx = (Math.random() - 0.5) * 2;
+              dy = (Math.random() - 0.5) * 2;
+              d2 = dx * dx + dy * dy + 0.01;
             }
-            const minDist = a.r + b.r + 28;
-            const force = Math.min(7, (minDist * minDist) / d2);
+            const minDist = a.r + b.r + 40;
+            const force = Math.min(40, (REPULSION + minDist * minDist) / d2) * alpha;
             const d = Math.sqrt(d2);
             const fx = (dx / d) * force;
             const fy = (dy / d) * force;
-            if (!selectedArticles.has(a.id)) { a.x += fx; a.y += fy; }
-            if (!selectedArticles.has(b.id)) { b.x -= fx; b.y -= fy; }
+            a.vx += fx;
+            a.vy += fy;
+            b.vx -= fx;
+            b.vy -= fy;
           }
         }
-
+        // Spring (edges)
         edges.forEach((edge) => {
-          const a = nodeMap.get(edge.source);
-          const b = nodeMap.get(edge.target);
+          const a = currentGraphView.nodes.get(edge.source);
+          const b = currentGraphView.nodes.get(edge.target);
           if (!a || !b) return;
           const dx = b.x - a.x;
           const dy = b.y - a.y;
           const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-          const target = 185;
-          const pull = (d - target) * 0.014;
+          const pull = (d - SPRING_LEN) * SPRING_K * alpha;
           const fx = (dx / d) * pull;
           const fy = (dy / d) * pull;
-          if (!selectedArticles.has(a.id)) { a.x += fx; a.y += fy; }
-          if (!selectedArticles.has(b.id)) { b.x -= fx; b.y -= fy; }
+          a.vx += fx;
+          a.vy += fy;
+          b.vx -= fx;
+          b.vy -= fy;
+        });
+        // Gravity to center
+        nodes.forEach((n) => {
+          n.vx += (cx - n.x) * GRAVITY * alpha;
+          n.vy += (cy - n.y) * GRAVITY * alpha;
+        });
+        // Apply
+        nodes.forEach((n) => {
+          if (n.fx != null) {
+            n.x = n.fx;
+            n.y = n.fy;
+            n.vx = 0;
+            n.vy = 0;
+            return;
+          }
+          n.vx *= DAMPING;
+          n.vy *= DAMPING;
+          n.x += n.vx;
+          n.y += n.vy;
         });
 
-        nodes.forEach((node) => {
-          const gravity = selectedArticles.has(node.id) ? 0.08 : 0.012;
-          node.x += (cx - node.x) * gravity;
-          node.y += (cy - node.y) * gravity;
-          node.x = Math.max(node.r + 24, Math.min(width - node.r - 24, node.x));
-          node.y = Math.max(node.r + 24, Math.min(height - node.r - 24, node.y));
+        // Paint
+        edges.forEach((edge) => {
+          const ref = edgeEls.get(edge.id);
+          const a = currentGraphView.nodes.get(edge.source);
+          const b = currentGraphView.nodes.get(edge.target);
+          if (!ref || !a || !b) return;
+          const angle = Math.atan2(b.y - a.y, b.x - a.x);
+          const x1 = a.x + Math.cos(angle) * a.r;
+          const y1 = a.y + Math.sin(angle) * a.r;
+          const x2 = b.x - Math.cos(angle) * (b.r + 6);
+          const y2 = b.y - Math.sin(angle) * (b.r + 6);
+          ref.line.setAttribute("x1", x1.toFixed(1));
+          ref.line.setAttribute("y1", y1.toFixed(1));
+          ref.line.setAttribute("x2", x2.toFixed(1));
+          ref.line.setAttribute("y2", y2.toFixed(1));
+          ref.label.setAttribute("x", ((x1 + x2) / 2).toFixed(1));
+          ref.label.setAttribute("y", ((y1 + y2) / 2 - 5).toFixed(1));
         });
+        nodes.forEach((n) => {
+          const el = nodeEls.get(n.id);
+          if (el) el.setAttribute("transform", `translate(${n.x.toFixed(2)} ${n.y.toFixed(2)})`);
+        });
+
+        alpha *= 0.992;
+        if (alpha > 0.005) {
+          graphSimHandle = requestAnimationFrame(tick);
+        } else {
+          graphSimHandle = null;
+        }
+      }
+      function reheat() {
+        alpha = Math.max(alpha, 0.45);
+        if (!graphSimHandle) graphSimHandle = requestAnimationFrame(tick);
+      }
+      graphSimHandle = requestAnimationFrame(tick);
+
+      // ── Viewport transform (zoom/pan) ────────────────────────────
+      function applyViewport() {
+        canvas.setAttribute(
+          "transform",
+          `translate(${graphViewport.tx} ${graphViewport.ty}) scale(${graphViewport.scale})`,
+        );
+      }
+      function svgPoint(evt) {
+        const rect = svg.getBoundingClientRect();
+        return {
+          x: (evt.clientX - rect.left - graphViewport.tx) / graphViewport.scale,
+          y: (evt.clientY - rect.top - graphViewport.ty) / graphViewport.scale,
+        };
+      }
+      function zoomAround(mx, my, newScale) {
+        newScale = Math.max(0.25, Math.min(3, newScale));
+        const k = newScale / graphViewport.scale;
+        graphViewport.tx = mx - (mx - graphViewport.tx) * k;
+        graphViewport.ty = my - (my - graphViewport.ty) * k;
+        graphViewport.scale = newScale;
+        applyViewport();
+      }
+      applyViewport();
+
+      // Wheel zoom
+      svg.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const rect = svg.getBoundingClientRect();
+        const mx = event.clientX - rect.left;
+        const my = event.clientY - rect.top;
+        const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+        zoomAround(mx, my, graphViewport.scale * factor);
+      }, { passive: false });
+
+      // Revert: reset viewport + restore node positions to initial layout
+      function revertGraph() {
+        graphViewport = { scale: 1, tx: 0, ty: 0 };
+        applyViewport();
+        nodes.forEach((n) => {
+          n.x = n.initialX;
+          n.y = n.initialY;
+          n.vx = 0;
+          n.vy = 0;
+          n.dropped = false;
+          n.pinned = n.originallyPinned;
+          if (n.pinned) {
+            n.fx = n.initialX;
+            n.fy = n.initialY;
+          } else {
+            n.fx = null;
+            n.fy = null;
+          }
+          const el = nodeEls.get(n.id);
+          if (el) {
+            el.classList.toggle("pinned", n.pinned);
+            el.classList.remove("dropped", "dragging");
+          }
+        });
+        alpha = 1;
+        reheat();
       }
 
-      return { width, height, nodeMap };
+      // Zoom-button handlers
+      els.graphStage.querySelectorAll("[data-zoom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const rect = svg.getBoundingClientRect();
+          const mx = rect.width / 2;
+          const my = rect.height / 2;
+          const mode = btn.dataset.zoom;
+          if (mode === "in") zoomAround(mx, my, graphViewport.scale * 1.25);
+          else if (mode === "out") zoomAround(mx, my, graphViewport.scale / 1.25);
+          else if (mode === "revert") revertGraph();
+        });
+      });
+
+      // Drag (node move) + pan (empty area)
+      let dragNode = null;
+      let dragOffset = null;
+      let panStart = null;
+      let movedDuringPress = false;
+
+      svg.addEventListener("mousedown", (event) => {
+        if (event.button !== 0) return;
+        movedDuringPress = false;
+        const nodeEl = event.target.closest("[data-node-id]");
+        if (nodeEl) {
+          const node = currentGraphView.nodes.get(nodeEl.dataset.nodeId);
+          if (!node) return;
+          dragNode = node;
+          nodeEl.classList.add("dragging");
+          const p = svgPoint(event);
+          dragOffset = { x: node.x - p.x, y: node.y - p.y };
+          node.fx = node.x;
+          node.fy = node.y;
+          event.preventDefault();
+        } else {
+          panStart = {
+            x: event.clientX - graphViewport.tx,
+            y: event.clientY - graphViewport.ty,
+          };
+          els.graphStage.classList.add("panning");
+        }
+      });
+      window.addEventListener("mousemove", (event) => {
+        if (dragNode) {
+          movedDuringPress = true;
+          const p = svgPoint(event);
+          dragNode.fx = p.x + dragOffset.x;
+          dragNode.fy = p.y + dragOffset.y;
+          dragNode.x = dragNode.fx;
+          dragNode.y = dragNode.fy;
+          reheat();
+        } else if (panStart) {
+          movedDuringPress = true;
+          graphViewport.tx = event.clientX - panStart.x;
+          graphViewport.ty = event.clientY - panStart.y;
+          applyViewport();
+        }
+      });
+      window.addEventListener("mouseup", () => {
+        if (dragNode) {
+          const el = nodeEls.get(dragNode.id);
+          if (el) el.classList.remove("dragging");
+          if (movedDuringPress) {
+            // User actually dragged the node — lock it where they dropped it.
+            dragNode.fx = dragNode.x;
+            dragNode.fy = dragNode.y;
+            dragNode.dropped = true;
+            if (el) el.classList.add("dropped");
+            graphSuppressClick = true;
+            setTimeout(() => { graphSuppressClick = false; }, 0);
+          } else if (!dragNode.pinned) {
+            // Clean click without movement — release the temporary fix
+            dragNode.fx = null;
+            dragNode.fy = null;
+          }
+          dragNode = null;
+          dragOffset = null;
+        }
+        if (panStart) {
+          panStart = null;
+          els.graphStage.classList.remove("panning");
+          if (movedDuringPress) {
+            graphSuppressClick = true;
+            setTimeout(() => { graphSuppressClick = false; }, 0);
+          }
+        }
+      });
+
+      // Double-click — releases a dragged/pinned node back into the simulation,
+      // or pins a free node where it currently sits.
+      svg.addEventListener("dblclick", (event) => {
+        const nodeEl = event.target.closest("[data-node-id]");
+        if (!nodeEl) return;
+        const node = currentGraphView.nodes.get(nodeEl.dataset.nodeId);
+        if (!node) return;
+        const isFixed = node.fx != null;
+        if (isFixed) {
+          node.fx = null;
+          node.fy = null;
+          node.pinned = false;
+          node.dropped = false;
+          nodeEl.classList.remove("pinned", "dropped");
+        } else {
+          node.fx = node.x;
+          node.fy = node.y;
+          node.pinned = true;
+          nodeEl.classList.add("pinned");
+        }
+        reheat();
+        event.preventDefault();
+      });
+    }
+
+    function stopGraphSimulation() {
+      if (graphSimHandle) {
+        cancelAnimationFrame(graphSimHandle);
+        graphSimHandle = null;
+      }
+    }
+
+    function buildLegendItems(nodes) {
+      const seen = new Map();
+      nodes.forEach((n) => {
+        const t = (Array.isArray(n.labels) && n.labels[0]) || "NODE";
+        if (!seen.has(t)) seen.set(t, n.color);
+      });
+      const entries = Array.from(seen.entries()).slice(0, 10);
+      return entries
+        .map(([type, color]) => {
+          const style =
+            `background:${hexToRgba(color, 0.28)};` +
+            `border:1.6px solid ${color};` +
+            `box-shadow:0 0 8px ${hexToRgba(color, 0.55)};`;
+          return `<li><span class="legend-dot" style="${style}"></span>${escapeHtml(type)}</li>`;
+        })
+        .join("");
+    }
+
+    function escapeAttr(value) {
+      return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+    }
+
+    function hexToRgba(hex, alpha) {
+      const s = String(hex || "").replace("#", "");
+      if (s.length !== 6) return `rgba(255,255,255,${alpha})`;
+      const r = parseInt(s.slice(0, 2), 16);
+      const g = parseInt(s.slice(2, 4), 16);
+      const b = parseInt(s.slice(4, 6), 16);
+      return `rgba(${r},${g},${b},${alpha})`;
     }
 
     function neoKind(labels) {
@@ -1837,20 +2589,31 @@
 
     function neoRadius(labels) {
       const kind = neoKind(labels);
-      if (kind === "article") return 52;
-      if (kind === "law" || kind === "chapter") return 46;
-      if (kind === "clause") return 42;
-      return 39;
+      if (kind === "article") return 38;
+      if (kind === "law" || kind === "chapter") return 34;
+      if (kind === "clause") return 30;
+      return 28;
     }
 
     function neoColor(labels) {
       const kind = neoKind(labels);
-      if (kind === "law") return "#7563d8";
-      if (kind === "chapter") return "#4f83cc";
-      if (kind === "article") return "#d97757";
-      if (kind === "clause") return "#4f9a77";
+      if (kind === "law") return "#9b7cf2";
+      if (kind === "chapter") return "#5b9bd5";
+      if (kind === "article") return "#e88a5a";
+      if (kind === "clause") return "#5fa872";
       const first = (Array.isArray(labels) && labels[0]) || "";
-      const palette = ["#4aa3a2", "#b36fb2", "#c59645", "#668cc9", "#a76855", "#5b9a68"];
+      const palette = [
+        "#5b9bd5", // blue
+        "#e88a5a", // orange
+        "#e35b6b", // red
+        "#a571d3", // purple
+        "#d4a14a", // yellow
+        "#4ac17b", // green
+        "#3fb9b0", // teal
+        "#c46d8f", // pink
+        "#7a8fc2", // blue-grey
+        "#b89055", // bronze
+      ];
       return palette[hashString(first) % palette.length];
     }
 
@@ -1892,26 +2655,140 @@
       return String(value ?? "");
     }
 
+    let pendingPatchMsg = null;
+    let patchScheduled = false;
+    let patchTimer = 0;
+    let patchFrame = 0;
+    let lastPatchAt = 0;
+    const STREAM_PATCH_INTERVAL_MS = 40;
+
     function patchStreamingMessage(m) {
+      pendingPatchMsg = m;
+      if (patchScheduled) return;
+      patchScheduled = true;
+
+      const now = performance.now();
+      const delay = Math.max(0, STREAM_PATCH_INTERVAL_MS - (now - lastPatchAt));
+      patchTimer = window.setTimeout(() => {
+        patchTimer = 0;
+        patchFrame = requestAnimationFrame(() => {
+          patchFrame = 0;
+          flushStreamingPatch();
+        });
+      }, delay);
+    }
+
+    function flushStreamingPatch() {
+      if (patchTimer) {
+        clearTimeout(patchTimer);
+        patchTimer = 0;
+      }
+      if (patchFrame) {
+        cancelAnimationFrame(patchFrame);
+        patchFrame = 0;
+      }
+      if (!patchScheduled && !pendingPatchMsg) return;
+      patchScheduled = false;
+      lastPatchAt = performance.now();
+      const msg = pendingPatchMsg;
+      pendingPatchMsg = null;
+      if (msg) applyStreamingPatch(msg);
+    }
+
+    function cancelStreamingPatch() {
+      if (patchTimer) {
+        clearTimeout(patchTimer);
+        patchTimer = 0;
+      }
+      if (patchFrame) {
+        cancelAnimationFrame(patchFrame);
+        patchFrame = 0;
+      }
+      pendingPatchMsg = null;
+      patchScheduled = false;
+    }
+
+    function applyStreamingPatch(m) {
       const root = document.querySelector(`[data-msg-id="${m.id}"]`);
       if (!root) { render(); return; }
 
       // Thinking card live update (only if scaffold already exists)
       const thinkBody = root.querySelector(".think-body");
-      if (thinkBody) thinkBody.textContent = m.thinking || "";
+      if (thinkBody) {
+        const wasAtBottom =
+          thinkBody.scrollHeight - thinkBody.scrollTop - thinkBody.clientHeight < 16;
+        appendTextDiff(thinkBody, m.thinking || "");
+        if (wasAtBottom) thinkBody.scrollTop = thinkBody.scrollHeight;
+      }
       const thinkLen = root.querySelector(".think-len");
       if (thinkLen) thinkLen.textContent = `${(m.thinking || "").length.toLocaleString()} ký tự`;
 
       // Answer content live update — replace, keep caret
-      const content = root.querySelector(".msg-content");
-      if (content) {
-        const caret = m.streaming ? '<span class="caret"></span>' : "";
-        content.innerHTML = renderMarkdown(m.answer || "") + caret;
+      const liveMarkdown = root.querySelector("[data-live-md]");
+      if (liveMarkdown) {
+        updateStreamingMarkdown(liveMarkdown, m.answer || "", !!m.streaming);
+      } else {
+        const content = root.querySelector(".msg-content");
+        if (content) {
+          if (m.streaming) {
+            content.classList.add("markdown", "streaming-markdown");
+            content.setAttribute("data-live-md", "");
+            content.innerHTML = renderStreamingMarkdown(m.answer || "", true);
+          } else {
+            const html = renderMarkdown(m.answer || "");
+            if (content.innerHTML !== html) content.innerHTML = html;
+          }
+        }
       }
 
-      requestAnimationFrame(() => {
-        els.chat.scrollTop = els.chat.scrollHeight;
-      });
+      scheduleScrollSync();
+    }
+
+    function appendTextDiff(el, nextText) {
+      const current = el.textContent || "";
+      const currentLength = Number(el.dataset.textLength || current.length || "0");
+      if (nextText.length >= currentLength && nextText.startsWith(current)) {
+        const delta = nextText.slice(currentLength);
+        if (delta) el.append(document.createTextNode(delta));
+      } else if (current !== nextText) {
+        el.textContent = nextText;
+      }
+      el.dataset.textLength = String(nextText.length);
+    }
+
+    function smoothTextTo(el, nextText) {
+      el._smoothTarget = nextText;
+      if (el._smoothFrame) return;
+
+      const step = () => {
+        el._smoothFrame = 0;
+        if (!el.isConnected) return;
+
+        const target = String(el._smoothTarget || "");
+        let current = el.textContent || "";
+        if (!target.startsWith(current)) {
+          el.textContent = target;
+          el.dataset.textLength = String(target.length);
+          return;
+        }
+
+        const remaining = target.length - current.length;
+        if (remaining <= 0) {
+          el.dataset.textLength = String(target.length);
+          return;
+        }
+
+        const take = Math.min(remaining, Math.max(6, Math.min(48, Math.ceil(remaining / 5))));
+        el.append(document.createTextNode(target.slice(current.length, current.length + take)));
+        el.dataset.textLength = String(current.length + take);
+        scheduleScrollSync();
+
+        if ((el.textContent || "").length < target.length) {
+          el._smoothFrame = requestAnimationFrame(step);
+        }
+      };
+
+      el._smoothFrame = requestAnimationFrame(step);
     }
 
     function updateComposer() {
@@ -1943,6 +2820,7 @@
 
       els.input.value = "";
       state.sending = true;
+      state.stuckToBottom = true;
       autoGrowTextarea();
 
       // Push user message + streaming placeholder assistant message
@@ -2065,11 +2943,13 @@
                 patchStreamingMessage(p);
               }
             } else if (evt.type === "done") {
+              cancelStreamingPatch();
               if (typeof evt.answer === "string") p.answer = evt.answer;
               if (typeof evt.thinking === "string") p.thinking = evt.thinking;
               p.streaming = false;
               render();
             } else if (evt.type === "error") {
+              cancelStreamingPatch();
               serverError = evt.message || "Unknown error";
             }
           }
@@ -2085,6 +2965,7 @@
           }
         }
       } catch (ex) {
+        cancelStreamingPatch();
         const msg = ex instanceof Error ? ex.message : String(ex);
         replacePlaceholderWithError(msg);
       } finally {
@@ -2093,15 +2974,97 @@
       }
     }
 
+    function applyTheme(theme) {
+      state.theme = theme === "light" ? "light" : "dark";
+      document.documentElement.dataset.theme = state.theme;
+      localStorage.setItem("legal-chat-theme", state.theme);
+      els.themeBtn.title = state.theme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối";
+    }
+    applyTheme(state.theme);
+
+    function startInlineRename(target, currentValue, onCommit) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = target.classList.contains("chat-title") ? "chat-title-input" : "conv-item-input";
+      input.value = currentValue;
+      target.replaceWith(input);
+      input.focus();
+      input.select();
+      let done = false;
+      const restore = () => {
+        if (input.parentNode) input.replaceWith(target);
+      };
+      const commit = (save) => {
+        if (done) return;
+        done = true;
+        const next = input.value.trim();
+        input.removeEventListener("blur", onBlur);
+        restore();
+        if (save && next && next !== currentValue) onCommit(next);
+        else render();
+      };
+      const onBlur = () => commit(true);
+      input.addEventListener("blur", onBlur);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); commit(true); }
+        else if (e.key === "Escape") { e.preventDefault(); commit(false); }
+        e.stopPropagation();
+      });
+    }
+
+    function renameConversation(id) {
+      const conv = state.conversations.find((c) => c.id === id);
+      if (!conv) return;
+      const titleEl = document.querySelector(`[data-conv-id="${CSS.escape(id)}"] .conv-item-title`);
+      if (!titleEl) return;
+      startInlineRename(titleEl, conv.title, (next) => {
+        conv.title = next;
+        render();
+      });
+    }
+
+    els.themeBtn.addEventListener("click", () => {
+      applyTheme(state.theme === "dark" ? "light" : "dark");
+    });
+
+    els.chatTitle.addEventListener("dblclick", () => {
+      const active = activeConversation();
+      if (!active) return;
+      startInlineRename(els.chatTitle, active.title, (next) => {
+        active.title = next;
+        render();
+      });
+    });
+
+    els.chat.addEventListener("scroll", () => {
+      const distance = els.chat.scrollHeight - els.chat.scrollTop - els.chat.clientHeight;
+      state.stuckToBottom = distance < 40;
+      els.scrollBottomBtn.classList.toggle("visible", distance > 80);
+    });
+
+    els.scrollBottomBtn.addEventListener("click", () => {
+      state.stuckToBottom = true;
+      els.chat.scrollTop = els.chat.scrollHeight;
+      els.scrollBottomBtn.classList.remove("visible");
+    });
+
     els.newChatBtn.addEventListener("click", () => {
       const c = newConversation();
       state.conversations = [c, ...state.conversations];
       state.activeId = c.id;
+      state.stuckToBottom = true;
       els.input.value = "";
       render();
     });
 
     els.convList.addEventListener("click", (event) => {
+      const renameBtn = event.target.closest("[data-rename-id]");
+      if (renameBtn) {
+        event.stopPropagation();
+        renameConversation(renameBtn.dataset.renameId);
+        return;
+      }
+
       const deleteBtn = event.target.closest("[data-delete-id]");
       if (deleteBtn) {
         const id = deleteBtn.dataset.deleteId;
@@ -2121,8 +3084,16 @@
       const item = event.target.closest("[data-conv-id]");
       if (item) {
         state.activeId = item.dataset.convId;
+        state.stuckToBottom = true;
         render();
       }
+    });
+
+    els.convList.addEventListener("dblclick", (event) => {
+      const titleEl = event.target.closest(".conv-item-title");
+      if (!titleEl) return;
+      const item = titleEl.closest("[data-conv-id]");
+      if (item) renameConversation(item.dataset.convId);
     });
 
     els.chatInner.addEventListener("click", (event) => {
@@ -2146,6 +3117,7 @@
     });
 
     els.graphStage.addEventListener("click", (event) => {
+      if (graphSuppressClick) return;
       const nodeEl = event.target.closest("[data-node-id]");
       if (nodeEl) {
         const node = currentGraphView.nodes.get(nodeEl.dataset.nodeId);

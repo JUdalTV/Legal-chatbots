@@ -141,12 +141,29 @@ class VectorRAGPipeline:
         )
 
         # ── Threshold filter (rerank score đã ∈ [0,1]) ─────────────
+        # Soft floor: nếu tất cả chunks dưới threshold (câu khó / khái niệm
+        # trừu tượng / cross-law), VẪN giữ top-FLOOR chunks điểm cao nhất và
+        # mark `low_confidence=True`. Prompt LLM đã sẵn sàng nói "không đủ
+        # căn cứ" nếu chunks không khớp, nên thà có dữ liệu để verify còn
+        # hơn là gửi VECTOR_CHUNKS rỗng (model sẽ chỉ dựa graph → dễ bịa).
+        FLOOR = 3
         threshold = (
             self.min_rerank_score if min_rerank_score is None else min_rerank_score
         )
-        candidates = [r for r in reranked_all if r["score"] >= threshold]
+        above = [r for r in reranked_all if r["score"] >= threshold]
+        low_confidence = False
+        if above:
+            candidates = above
+        else:
+            # Tất cả < threshold → soft floor
+            candidates = reranked_all[:FLOOR]
+            low_confidence = True
+
         if not candidates:
-            return {"intent": intent, "top_k": k, "results": [], "context": ""}
+            return {
+                "intent": intent, "top_k": k, "results": [], "context": "",
+                "low_confidence": False,
+            }
 
         # ── MMR diversity, OR dedup by article ─────────────────────
         if self.mmr_enabled and len(candidates) > k:
@@ -157,11 +174,17 @@ class VectorRAGPipeline:
         else:
             final = dedup_by_article(candidates)[:k]
 
+        # Đánh dấu từng chunk để format hiển thị có thể nhận biết.
+        if low_confidence:
+            for r in final:
+                r["low_confidence"] = True
+
         return {
             "intent":  intent,
             "top_k":   k,
             "results": final,
             "context": format_context_for_llm(final),
+            "low_confidence": low_confidence,
         }
 
     # ────────────────────────────────────────────────────────────────

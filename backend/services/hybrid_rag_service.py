@@ -25,7 +25,8 @@ from backend.graph_rag.ontology import ALL_NODE_TYPES, RELATION_CATALOG
 from backend.vector_rag.intent import classify_intent, extract_article_number
 from backend.vector_rag.pipeline import VectorRAGPipeline
 from backend.services.llm_client import LLMClient
-from backend.services.query_refiner import refine_query
+from backend.services.query_refiner import refine_and_decompose_query
+from backend.vector_rag.reranker import format_context_for_llm
 
 # Note: citation.py + faithfulness.py vẫn còn trong codebase nhưng KHÔNG còn
 # nằm trong hybrid pipeline. Giữ lại 2 file để dùng programmatic ở chỗ khác
@@ -63,13 +64,6 @@ _SAMPLING_NO_THINKING = {
     "top_p": 0.9,
     "repetition_penalty": 1.05,
 }
-
-# Token budget split khi thinking bật. Tổng ≤ max_tokens (8192 mặc định).
-# Hard cap qua chat_template_kwargs.thinking_budget (Qwen3/R1 tự đóng </think>
-# khi đạt cap, để dành phần còn lại cho câu trả lời thực).
-THINKING_BUDGET = 5192
-ANSWER_BUDGET = 3000
-
 
 DEFAULT_QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 DEFAULT_QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
@@ -109,7 +103,7 @@ class HybridRAGService:
         neo4j_password: str = DEFAULT_NEO4J_PASSWORD,
         device: str = "gpu",
         llm: LLMClient | None = None,
-        min_rerank_score: float = 0.25,
+        min_rerank_score: float = 0.30,
         enable_refine:       bool = True,
     ):
         self.vector = VectorRAGPipeline(
@@ -137,36 +131,52 @@ class HybridRAGService:
         max_tokens: int = 8192,
         thinking_mode: str = "auto",  # "auto" | "on" | "off"
     ) -> HybridRAGResult:
-        # ── Step 1: tinh chỉnh query (intent-aware, law-locked nếu có) ──
+        # ── Step 1: refine + decompose query trong 1 LLM call ──
         intent = classify_intent(query)
         if self.enable_refine:
-            refined_info = refine_query(
+            refined_info = refine_and_decompose_query(
                 query, intent=intent, law_id=law_id, llm=self.llm,
             )
         else:
             refined_info = {
                 "original": query, "intent": intent,
-                "objective": "", "refined": query,
+                "objective": "", "refined": query, "subqueries": [],
             }
         retrieval_query = refined_info["refined"]
+        sub_queries: list[str] = refined_info.get("subqueries") or []
 
         # ── Step 2: retrieve (vector + graph seed) song song ──────
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            vector_future = pool.submit(
-                self._run_vector,
-                retrieval_query,
-                law_id=law_id,
-                top_k=top_k,
-                min_rerank_score=min_rerank_score,
-            )
-            graph_future = pool.submit(
-                self._run_graph_seed_search, retrieval_query, law_id=law_id,
-            )
-            vector_out = vector_future.result()
-            graph_seed_ids = graph_future.result()
+        # Multi-query khi LLM đã chia câu phức tạp thành ≥2 sub-query.
+        # Dedupe chunks cross-sub theo chunk_id (giữ điểm cao nhất) — xem
+        # _multi_query_vector_search.
+        vector_out, graph_seed_ids = self._run_retrieval(
+            retrieval_query=retrieval_query,
+            sub_queries=sub_queries,
+            law_id=law_id,
+            top_k=top_k,
+            min_rerank_score=min_rerank_score,
+        )
 
         vector_results = vector_out.get("results", [])
         vector_context = vector_out.get("context", "")
+        vector_low_conf = bool(vector_out.get("low_confidence", False))
+
+        # ── Fallback an toàn: multi-query không trả về chunk nào → ──
+        # thử search bằng `refined` đơn (rất hiếm khi xảy ra; chỉ là safety net
+        # khi LLM tách sub quá hẹp). KHÔNG fallback dựa trên low_confidence vì
+        # low_conf=soft-floor là tín hiệu cho LLM verify, không phải lý do retry.
+        if sub_queries and not vector_results:
+            print("[hybrid] multi-subquery rỗng → fallback sang refined đơn")
+            refined_out = self._run_vector(
+                retrieval_query, law_id=law_id, top_k=top_k,
+                min_rerank_score=min_rerank_score,
+            )
+            if refined_out.get("results"):
+                vector_results = refined_out["results"]
+                vector_context = refined_out["context"]
+                vector_low_conf = bool(refined_out.get("low_confidence", False))
+                refined_info["fallback_to_refined"] = True
+
         vector_article_ids = [
             r.get("neo4j_id") or r.get("article")
             for r in vector_results
@@ -183,12 +193,12 @@ class HybridRAGService:
             vector_context=vector_context,
             graph_context=graph_context,
             cypher_guide=cypher_guide,
+            vector_low_confidence=vector_low_conf,
         )
         enable_thinking = _resolve_thinking(thinking_mode, intent)
         answer = self.llm.chat(
             messages, temperature=temperature, max_tokens=max_tokens,
             enable_thinking=enable_thinking,
-            thinking_budget=THINKING_BUDGET if enable_thinking else None,
             extra_payload=(
                 _SAMPLING_THINKING if enable_thinking else _SAMPLING_NO_THINKING
             ),
@@ -229,36 +239,46 @@ class HybridRAGService:
         graph_article_ids, and optionally vector_context/graph_context
         (only if include_context=True).
         """
-        # ── Step 1: refine + classify ───────────────────────────
+        # ── Step 1: refine + decompose trong 1 LLM call ──────────
         intent = classify_intent(query)
         if self.enable_refine:
-            refined_info = refine_query(
+            refined_info = refine_and_decompose_query(
                 query, intent=intent, law_id=law_id, llm=self.llm,
             )
         else:
             refined_info = {
                 "original": query, "intent": intent,
-                "objective": "", "refined": query,
+                "objective": "", "refined": query, "subqueries": [],
             }
         retrieval_query = refined_info["refined"]
+        sub_queries: list[str] = refined_info.get("subqueries") or []
 
-        # ── Step 2: retrieve (vector + graph) song song ─────────
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            vector_future = pool.submit(
-                self._run_vector,
-                retrieval_query,
-                law_id=law_id,
-                top_k=top_k,
-                min_rerank_score=min_rerank_score,
-            )
-            graph_future = pool.submit(
-                self._run_graph_seed_search, retrieval_query, law_id=law_id,
-            )
-            vector_out = vector_future.result()
-            graph_seed_ids = graph_future.result()
+        # ── Step 2: retrieve (vector + graph) song song ──────────
+        vector_out, graph_seed_ids = self._run_retrieval(
+            retrieval_query=retrieval_query,
+            sub_queries=sub_queries,
+            law_id=law_id,
+            top_k=top_k,
+            min_rerank_score=min_rerank_score,
+        )
 
         vector_results = vector_out.get("results", [])
         vector_context = vector_out.get("context", "")
+        vector_low_conf = bool(vector_out.get("low_confidence", False))
+
+        # Fallback an toàn: multi-query rỗng → refined đơn (xem answer()).
+        if sub_queries and not vector_results:
+            print("[hybrid] multi-subquery rỗng → fallback sang refined đơn")
+            refined_out = self._run_vector(
+                retrieval_query, law_id=law_id, top_k=top_k,
+                min_rerank_score=min_rerank_score,
+            )
+            if refined_out.get("results"):
+                vector_results = refined_out["results"]
+                vector_context = refined_out["context"]
+                vector_low_conf = bool(refined_out.get("low_confidence", False))
+                refined_info["fallback_to_refined"] = True
+
         vector_article_ids = [
             r.get("neo4j_id") or r.get("article")
             for r in vector_results
@@ -275,6 +295,7 @@ class HybridRAGService:
             "intent": intent,
             "thinking_used": enable_thinking,
             "graph_article_ids": graph_article_ids,
+            "vector_low_confidence": vector_low_conf,
         }
         if include_context:
             meta["vector_context"] = vector_context
@@ -289,6 +310,7 @@ class HybridRAGService:
             vector_context=vector_context,
             graph_context=graph_context,
             cypher_guide=cypher_guide,
+            vector_low_confidence=vector_low_conf,
         )
 
         thinking_full = ""
@@ -298,7 +320,6 @@ class HybridRAGService:
             temperature=temperature,
             max_tokens=max_tokens,
             enable_thinking=enable_thinking,
-            thinking_budget=THINKING_BUDGET if enable_thinking else None,
             extra_payload=(
                 _SAMPLING_THINKING if enable_thinking else _SAMPLING_NO_THINKING
             ),
@@ -315,6 +336,45 @@ class HybridRAGService:
             "thinking": thinking_full,
         })
 
+    def _run_retrieval(
+        self,
+        *,
+        retrieval_query: str,
+        sub_queries: list[str],
+        law_id: str | None,
+        top_k: int | None,
+        min_rerank_score: float | None,
+    ) -> tuple[dict, list[str]]:
+        """
+        Chạy vector + graph seed song song.
+        - sub_queries ≥2 → multi-query vector search, dedupe theo chunk_id.
+        - else          → single search bằng `retrieval_query` (refined).
+        Graph seed luôn dùng `retrieval_query` để gom ARTICLE qua fulltext+entity.
+        """
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            if len(sub_queries) >= 2:
+                vector_future = pool.submit(
+                    self._multi_query_vector_search,
+                    sub_queries,
+                    law_id=law_id,
+                    top_k=top_k,
+                    min_rerank_score=min_rerank_score,
+                )
+            else:
+                vector_future = pool.submit(
+                    self._run_vector,
+                    retrieval_query,
+                    law_id=law_id,
+                    top_k=top_k,
+                    min_rerank_score=min_rerank_score,
+                )
+            graph_future = pool.submit(
+                self._run_graph_seed_search, retrieval_query, law_id=law_id,
+            )
+            vector_out = vector_future.result()
+            graph_seed_ids = graph_future.result()
+        return vector_out, graph_seed_ids
+
     def _run_vector(
         self,
         query: str,
@@ -329,6 +389,65 @@ class HybridRAGService:
             top_k=top_k,
             min_rerank_score=min_rerank_score,
         )
+
+    def _multi_query_vector_search(
+        self,
+        queries: list[str],
+        *,
+        law_id: str | None,
+        top_k: int | None,
+        min_rerank_score: float | None,
+    ) -> dict:
+        """
+        Chạy vector search cho nhiều sub-query song song, merge & dedupe
+        theo chunk_id, giữ score cao nhất.
+        """
+        if not queries:
+            return {"results": [], "context": "", "low_confidence": False}
+        if len(queries) == 1:
+            return self._run_vector(
+                queries[0], law_id=law_id, top_k=top_k,
+                min_rerank_score=min_rerank_score,
+            )
+
+        with ThreadPoolExecutor(max_workers=min(len(queries), 4)) as pool:
+            futures = [
+                pool.submit(
+                    self._run_vector, q,
+                    law_id=law_id, top_k=top_k,
+                    min_rerank_score=min_rerank_score,
+                )
+                for q in queries
+            ]
+            outputs = [f.result() for f in futures]
+
+        seen: dict[str, dict] = {}
+        for out in outputs:
+            for r in out.get("results", []):
+                key = r.get("chunk_id") or r.get("neo4j_id") or ""
+                if not key:
+                    continue
+                score = float(r.get("score") or 0)
+                if key not in seen or score > float(seen[key].get("score") or 0):
+                    seen[key] = r
+        merged = sorted(
+            seen.values(),
+            key=lambda r: float(r.get("score") or 0),
+            reverse=True,
+        )
+        # Cap số chunks tổng cộng: max 12 (để context không quá lớn)
+        cap = max(top_k or 8, 8) + 4
+        merged = merged[:cap]
+        # Low confidence nếu MỌI sub-query đều trả về low_confidence (hoặc rỗng).
+        low_confidence = bool(outputs) and all(
+            out.get("low_confidence", False) or not out.get("results")
+            for out in outputs
+        )
+        return {
+            "results": merged,
+            "context": format_context_for_llm(merged) if merged else "",
+            "low_confidence": low_confidence,
+        }
 
     def _run_graph_seed_search(self, query: str, *, law_id: str | None) -> list[str]:
         exact = self._exact_article_ids(query, law_id=law_id)
@@ -405,63 +524,83 @@ def build_hybrid_prompt(
     graph_context: str,
     cypher_guide: str,
     objective: str = "",
+    vector_low_confidence: bool = False,
 ) -> list[dict]:
     system = """Bạn là trợ lý pháp lý chuyên luật Viễn thông, CNTT, An ninh mạng Việt Nam.
 Nguồn: VECTOR_CHUNKS (ưu tiên) + GRAPH_CONTEXT.
 
-NGUYÊN TẮC: ĐÚNG TRỌNG TÂM — ĐỦ — KHÔNG THỪA. Bám ngôn ngữ luật, không paraphrase/diễn giải/biện hộ.
-
-NGÂN SÁCH SUY NGHĨ: tối đa 5192 token cho phần suy nghĩ (think). Suy nghĩ ngắn gọn, không tự lặp lại check-list, không tự đặt câu hỏi "Wait, check..." nhiều lần. Khi đã đủ căn cứ → KẾT LUẬN ngay, dành phần còn lại của output cho CÂU TRẢ LỜI thực sự tối đa 3000 token. KHÔNG để hết token vào suy nghĩ mà không có câu trả lời.
+NGUYÊN TẮC: TRẢ LỜI NGẮN GỌN - ĐÚNG TRỌNG TÂM. Bám ngôn ngữ luật, không paraphrase/diễn giải/biện hộ.
 
 <độ_dài_theo_dạng>
 - Số/ngày/cơ quan: 1 câu + căn cứ.
 - Định nghĩa: trích NGUYÊN VĂN, không paraphrase.
-- Liệt kê: giữ ký hiệu gốc (a,b,c,đ,e,g,h,i,k), KHÔNG đổi sang (1)(2)(3), KHÔNG tự đặt nhãn.
+- Liệt kê: giữ ký hiệu gốc (a,b,c,đ,e,g,h,i,k), KHÔNG đổi sang (1)(2)(3).
 - So sánh: trích nguyên văn từng đối tượng + nêu giống/khác CHỈ theo tiêu chí được hỏi.
 - Xử phạt: hành vi → căn cứ → chế tài → khắc phục (nếu có).
 </độ_dài_theo_dạng>
 
 <ba_trạng_thái>
 A — Luật RÕ + ĐỦ → trả lời trực tiếp + trích nguyên văn + căn cứ.
-B — Luật có quy định + có khoảng trống → BẮT BUỘC phân tích, KHÔNG né. "Luật quy định [X] tại [Điều, khoản]. Tuy nhiên KHÔNG nêu [Y cụ thể: cơ chế giám sát/chế tài/cơ quan độc lập]."
-C — Luật KHÔNG quy định → "Luật không quy định cụ thể về [X]." + (tùy chọn) trích quy định gần liên quan.
+B — Luật có quy định + có khoảng trống → BẮT BUỘC phân tích, KHÔNG né. "Luật quy định [X] tại [Điều, khoản]. Tuy nhiên KHÔNG nêu [Y cụ thể]." SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>.
+C — Luật KHÔNG quy định → "Luật không quy định cụ thể về [X]." + trích quy định gần liên quan nếu có.
 
 "Vượt phạm vi văn bản" KHÔNG phải lá chắn. Phân tích được khoảng trống cụ thể → là B, phải phân tích.
 </ba_trạng_thái>
 
+<suy_luận_bù_khoảng_trống>
+Khi xác định trạng thái B, KHÔNG dừng lại ở báo cáo khoảng trống.
+BẮT BUỘC tiếp tục theo thứ tự:
+
+BƯỚC 1 — XÁC ĐỊNH NGUYÊN TẮC GẦN NHẤT có thể áp dụng:
+- Thứ bậc hành chính: khi hai Bộ xung đột mà luật không quy định cơ chế phân giải, Thủ tướng Chính phủ là cơ quan phân giải theo nguyên tắc quản lý thống nhất. Nêu rõ đây là suy luận từ nguyên tắc, không phải quy định tường minh.
+- Quan hệ ủy quyền: đại lý hành động nhân danh doanh nghiệp viễn thông → nghĩa vụ có thể suy từ bản chất hợp đồng đại lý dù luật không quy định tường minh.
+- Chủ quyền hạ tầng: dữ liệu đi qua hạ tầng vật lý trên lãnh thổ Việt Nam → có lập luận về thẩm quyền can thiệp dù luật chưa quy định tường minh với transit traffic.
+- Bồi hoàn công: yêu cầu nhà nước tạo chi phí ngoài phạm vi hợp đồng → nguyên tắc chung pháp luật hành chính là nhà nước có nghĩa vụ chi trả, dù luật chuyên ngành chưa quy định cụ thể.
+
+BƯỚC 2 — PHÂN CÔNG TRÁCH NHIỆM NHÀ NƯỚC / DOANH NGHIỆP:
+Khi câu hỏi về khoảng trống công nghệ mới (deepfake, AI, IoT, transit):
+- Nhà nước: phát hiện, điều tra, yêu cầu xử lý.
+- Doanh nghiệp: hạ tầng truyền dẫn, phối hợp theo yêu cầu.
+Nêu rõ phân công này dù luật chưa quy định tường minh cho công nghệ cụ thể.
+
+BƯỚC 3 — GHI RÕ MỨC ĐỘ CHẮC CHẮN:
+Kết thúc bằng một trong hai:
+- "Đây là suy luận từ nguyên tắc [X] — luật chưa quy định tường minh."
+- "Đây là khoảng trống thực sự — cần quy định chi tiết của Chính phủ."
+KHÔNG trộn hai loại này vào nhau.
+</suy_luận_bù_khoảng_trống>
+
 <trích_dẫn>
-- Format khi context có nhiều luật: [Tên luật] Điều X, khoản Y, điểm Z. CẤM chỉ ghi "Điều X".
-- KHÔNG nhầm Điều cùng số giữa các luật. Không chắc → KHÔNG trích.
+Format: [Tên luật] Điều X, khoản Y, điểm Z. CẤM chỉ ghi "Điều X".
+KHÔNG nhầm Điều cùng số giữa các luật. Không chắc → KHÔNG trích.
 
 VERIFY 2 BƯỚC trước mỗi trích:
 1. NỘI DUNG: điều khoản có trong VECTOR_CHUNKS? Không → "(văn bản không cung cấp căn cứ cụ thể)".
 2. CHỦ THỂ + HÀNH VI: khớp câu hỏi?
-   - Điều 41: "doanh nghiệp cung cấp dịch vụ trên không gian mạng" — KHÔNG dùng cho cơ quan nhà nước/bệnh viện vận hành HT nội bộ/cá nhân.
-   - Điều 40: "chủ quản hệ thống thông tin" — KHÔNG dùng cho cá nhân.
-   - Điều 42: "cơ quan, tổ chức, cá nhân sử dụng không gian mạng" — áp dụng rộng nhất.
+   - "doanh nghiệp cung cấp dịch vụ trên không gian mạng" — KHÔNG dùng cho cơ quan nhà nước/tổ chức vận hành hệ thống nội bộ/cá nhân.
+   - "chủ quản hệ thống thông tin" — KHÔNG dùng cho cá nhân.
+   - "cơ quan, tổ chức, cá nhân sử dụng không gian mạng" — áp dụng rộng nhất.
 
-Cross-law: chủ thể + hành vi + đối tượng phải KHỚP. Trùng từ khóa ("thông tin", "an ninh") KHÔNG đủ.
-
-Kết hợp ≥2 luật, BẮT BUỘC chuyển tiếp rõ:
+Kết hợp ≥2 luật, BẮT BUỘC:
 "Tổng hợp hai luật: [Luật A] Điều X quy định [...]; [Luật B] Điều Y quy định [...] — kết hợp xác định: [...]".
 KHÔNG trộn 2 luật vào 1 câu không gắn nhãn.
 
-Điều chỉ có trong GRAPH_CONTEXT mà KHÔNG có nội dung trong VECTOR_CHUNKS → KHÔNG trích.
-Hai nguồn mâu thuẫn → ưu tiên nguyên văn VECTOR_CHUNKS.
+VECTOR_CHUNKS có nội dung nhưng điều khoản chỉ xuất hiện trong GRAPH_CONTEXT → KHÔNG trích điều khoản đó.
+VECTOR_CHUNKS RỖNG HOÀN TOÀN → ĐƯỢC PHÉP trích GRAPH_CONTEXT với nhãn "(căn cứ từ graph, chưa xác minh nguyên văn)".
 </trích_dẫn>
 
 <xác_định_chủ_thể>
-Trước khi chọn điều khoản, xác định tư cách pháp lý của từng chủ thể.
-- Bệnh viện/trường/nhà máy vận hành HT thông tin NỘI BỘ = chủ quản HT → Điều 40, không phải 41.
-- Cá nhân/nhà báo bất kỳ = Điều 42, không phải 40/41.
-- Công ty pentest/bảo mật: cung cấp dịch vụ → Điều 41; phát hiện vi phạm với tư cách tổ chức → Điều 42.
-- 1 chủ thể có thể đồng thời mang 2 tư cách → liệt kê nghĩa vụ theo từng tư cách riêng.
+Trước khi chọn điều khoản, xác định tư cách pháp lý của từng chủ thể:
+- Tổ chức vận hành hệ thống thông tin nội bộ = chủ quản.
+- Cá nhân.
+- Công ty cung cấp dịch vụ bảo mật; phát hiện vi phạm với tư cách tổ chức.
+- 1 chủ thể có thể mang 2 tư cách → liệt kê nghĩa vụ theo từng tư cách riêng.
 </xác_định_chủ_thể>
 
 <phân_biệt_khái_niệm>
-- "Lỗ hổng bảo mật/điểm yếu" (chưa khai thác) → Điều 41 K2 (phòng ngừa), KHÔNG K3. Không có nghĩa vụ báo cáo khẩn như sự cố.
-- "Sự cố an ninh mạng" (đã xảy ra/bị xâm phạm) → Điều 41 K3 — ngay lập tức ứng cứu VÀ báo cáo.
-- "Tình huống nguy hiểm về ANM" (Điều 2 K18): trạng thái diễn biến, chưa thành sự cố. KHÔNG tự quy chiếu Điều 20 nếu VECTOR_CHUNKS không cung cấp nội dung Điều 20.
+- "Lỗ hổng bảo mật/điểm yếu" (chưa khai thác) → (phòng ngừa). Không có nghĩa vụ báo cáo khẩn như sự cố.
+- "Sự cố" (đã xảy ra/bị xâm phạm) → ngay lập tức ứng cứu VÀ báo cáo.
+- "Tình huống nguy hiểm": trạng thái diễn biến, chưa thành sự cố.
 
 Lỗ hổng chưa khai thác → KHÔNG dùng ngôn ngữ "sự cố xảy ra", KHÔNG trích Điều 41 K3.
 </phân_biệt_khái_niệm>
@@ -469,12 +608,9 @@ Lỗ hổng chưa khai thác → KHÔNG dùng ngôn ngữ "sự cố xảy ra", 
 <kiểm_tra_trước_kết_luận>
 □ Mỗi điều khoản trích dẫn có trong VECTOR_CHUNKS?
 □ Chủ thể điều khoản khớp chủ thể câu hỏi?
-□ Đã phân biệt lỗ hổng/sự cố/tình huống nguy hiểm (nếu liên quan)?
-□ Có điều khoản trực tiếp hơn chưa xét?
-  — Thu thập/phát tán thông tin cá nhân: Điều 7 K2h.
-  — Kiểm tra thiết bị/phần mềm nước ngoài trước khi đưa vào HT ANQG: Điều 15 K4b.
-  — Chủ quản báo cáo sự cố: Điều 40 K1c.
-□ Kết luận khớp mức chắc chắn (RÕ/PHÂN TÍCH ĐƯỢC/THIẾU DỮ LIỆU)?
+□ Đã phân biệt lỗ hổng/sự cố/tình huống nguy hiểm nếu liên quan?
+□ Nếu trạng thái B: đã thực hiện <suy_luận_bù_khoảng_trống>?
+□ Kết luận ghi rõ mức độ chắc chắn (tường minh / suy luận từ nguyên tắc / khoảng trống thực sự)?
 </kiểm_tra_trước_kết_luận>
 
 <kết_luận>
@@ -482,47 +618,37 @@ Kết luận PHẢI khớp độ chắc chắn của căn cứ. KHÔNG over-clai
 
 3 mức:
 (1) RÕ: source quy định trực tiếp → kết luận thẳng.
-(2) PHÂN TÍCH ĐƯỢC: source cùng chủ đề, đòi đánh giá ranh giới → trích phần CÓ + nêu phần KHÔNG có. KHÔNG bình luận "đã đủ"/"chưa đủ".
+(2) PHÂN TÍCH ĐƯỢC: source cùng chủ đề, đòi đánh giá ranh giới → trích phần CÓ + nêu phần KHÔNG có + suy luận bù theo <suy_luận_bù_khoảng_trống>.
 (3) THIẾU DỮ LIỆU: source hoàn toàn không có → "Văn bản không quy định về [X]. Không thể kết luận trong phạm vi văn bản."
 
-NHỊ PHÂN VỀ THUẬT NGỮ CHƯA ĐỊNH NGHĨA (chống expressio unius):
-"X có phải/thuộc Y không" mà (a) Y không định nghĩa, HOẶC (b) điều khoản chỉ TRAO QUYỀN cho danh sách (X1,X2) không kèm "duy nhất"/"chỉ"/"không bao gồm" → CẤM kết luận "CÓ"/"KHÔNG" dứt khoát.
-Cấu trúc: trích quy định + chỉ rõ luật không định nghĩa Y + liệt kê trường hợp luật ghi rõ + "phụ thuộc vào diễn giải; văn bản không cung cấp tiêu chí quyết định."
+NHỊ PHÂN VỀ THUẬT NGỮ CHƯA ĐỊNH NGHĨA:
+"X có phải/thuộc Y không" mà Y không định nghĩa hoặc điều khoản không kèm "duy nhất"/"chỉ"/"không bao gồm" → CẤM kết luận CÓ/KHÔNG dứt khoát.
+Cấu trúc: trích quy định + chỉ rõ luật không định nghĩa Y + "phụ thuộc vào diễn giải; văn bản không cung cấp tiêu chí quyết định."
 
-Chỉ kết luận nhị phân khi: thuật ngữ ĐƯỢC định nghĩa rõ + trường hợp rõ ràng trong/ngoài, HOẶC luật dùng "duy nhất"/"chỉ"/"không được"/"cấm" tường minh, HOẶC câu hỏi về sự kiện hiển nhiên.
-
-QUY TRÌNH NHIỀU GIAI ĐOẠN: tách riêng từng giai đoạn. "Đối với [A]: [Điều X áp dụng]. Đối với [B]: Điều X KHÔNG áp dụng vì... / không có Điều áp dụng riêng."
+QUY TRÌNH NHIỀU GIAI ĐOẠN: tách riêng từng giai đoạn. "Đối với [A]: [...]. Đối với [B]: [...]."
 </kết_luận>
 
 <chống_bịa>
-Hallucination = tự tin nhưng sai. Patterns chặn:
-
-1. BỊA SỐ ĐIỀU/KHOẢN: tìm "Điều X" trong VECTOR_CHUNKS. Không thấy → KHÔNG trích, ghi "(căn cứ không có trong văn bản được cung cấp)".
-2. BỊA MỨC PHẠT/THỜI HẠN/CON SỐ: con số phải xuất hiện NGUYÊN VĂN trong VECTOR_CHUNKS. Không thấy → "Luật không quy định mức phạt cụ thể trong văn bản được cung cấp."
-3. BỊA NGHĨA VỤ KHÔNG TỒN TẠI: nghĩa vụ phải có động từ bắt buộc ("phải"/"có trách nhiệm"/"bắt buộc") trong VECTOR_CHUNKS. Không suy nghĩa vụ từ quyền hạn/nguyên tắc chung.
-4. BỊA CƠ QUAN/THỦ TỤC: tên cơ quan + thủ tục phải xuất hiện trong VECTOR_CHUNKS.
-5. NHẦM PHIÊN BẢN LUẬT: kiểm tra số hiệu. Context 116/2025/QH15 → KHÔNG trích 24/2018/QH14.
-6. CHAIN-OF-THOUGHT HALLUCINATION: mỗi bước suy luận phải có căn cứ riêng trong VECTOR_CHUNKS. Không dùng kết quả suy luận trước làm căn cứ bước sau nếu bước sau không có source.
-7. OVER-CONFIDENT SILENCE: source có quy định liên quan nhưng không đủ → BẮT BUỘC nêu phần nào có/không có.
+*KHÔNG*:
+1. BỊA SỐ ĐIỀU/KHOẢN
+2. BỊA CON SỐ/THỜI HẠN
+3. BỊA NGHĨA VỤ: phải có động từ bắt buộc ("phải"/"có trách nhiệm"). KHÔNG suy nghĩa vụ từ quyền hạn/nguyên tắc chung.
+4. NHẦM PHIÊN BẢN LUẬT: kiểm tra số hiệu.
+5. CHAIN-OF-THOUGHT: mỗi bước suy luận phải có căn cứ riêng. Không dùng kết quả suy luận trước làm căn cứ bước sau nếu bước sau không có source.
 
 KIỂM TRA CUỐI mỗi trích: "Tôi có thể chỉ ra đoạn văn cụ thể trong VECTOR_CHUNKS chứa nội dung này không?" Không → XÓA.
+
+LƯU Ý: suy luận bù khoảng trống trong <suy_luận_bù_khoảng_trống> KHÔNG phải bịa — đây là lập luận từ nguyên tắc được gắn nhãn rõ ràng. Hai việc này KHÔNG mâu thuẫn nhau.
 </chống_bịa>
 
 <cấm>
-- Cụm hedge: "thường được coi là", "thông thường", "trên thực tế", "có thể hiểu rằng", "có thể coi là", "theo nguyên tắc chung", "trong thực tiễn pháp lý".
-- Suy quy định cụ thể từ nguyên tắc chung. CẤM "bao gồm cả 4G/5G", "áp dụng cho cả X và Y" nếu source không liệt kê.
-- Kết luận "đã có cơ chế kiểm soát đầy đủ" / "không có rủi ro" / "không mâu thuẫn nội tại" khi cơ chế chỉ là thủ tục hành chính.
-- "Do đó"/"Vì vậy"/"Từ đó suy ra" để rút kết luận về tính đầy đủ.
+- Hedge vô căn cứ: "thường được coi là", "thông thường", "có thể hiểu rằng", "theo nguyên tắc chung".
+- Suy quy định cụ thể từ nguyên tắc chung MÀ KHÔNG GẮN NHÃN là suy luận.
+- Kết luận "đã có cơ chế kiểm soát đầy đủ" / "không mâu thuẫn nội tại".
+- "Do đó"/"Vì vậy" để rút kết luận về tính đầy đủ.
 - Metadata không hỏi: "Quốc hội khóa XV thông qua ngày...", "thuộc Chương X".
-- Cross-reference ngoài câu hỏi: "Ngoài ra", "Bên cạnh đó", "Cùng với đó", "Đáng chú ý".
-- Hậu quả/chế tài khi chỉ hỏi định nghĩa.
-- Bỏ sót định lượng: thời hạn, số lượng, ngày, ngoại lệ ("trừ trường hợp...").
-- Tự tạo Cypher mới. CYPHER_GUIDE chỉ giúp hiểu schema.
-- Trích điều khoản không có trong VECTOR_CHUNKS dù nhớ nội dung.
-- Áp Điều 41 cho chủ thể không phải "doanh nghiệp cung cấp dịch vụ trên không gian mạng".
-- Áp Điều 40 cho cá nhân — phải dùng Điều 42.
-- Bỏ qua Điều 7 K2h khi câu hỏi về thu thập/phát tán thông tin cá nhân.
-- Dùng điều khoản định nghĩa (Điều 2) làm căn cứ cho cấm đoán/nghĩa vụ.
+- Bỏ sót định lượng: thời hạn, số lượng, ngoại lệ ("trừ trường hợp...").
+- Dừng lại ở trạng thái B mà không thực hiện <suy_luận_bù_khoảng_trống>.
 </cấm>"""
     system += """
 
@@ -535,10 +661,21 @@ KIỂM TRA CUỐI mỗi trích: "Tôi có thể chỉ ra đoạn văn cụ thể
         f"\n<MỤC_TIÊU_NGƯỜI_HỎI>\n{objective}\n</MỤC_TIÊU_NGƯỜI_HỎI>\n"
         if objective else ""
     )
+    # Soft-floor signal: pipeline đã trả top-3 chunks dù tất cả < threshold.
+    # Nhắc LLM verify gắt hơn — không trích nếu chunks không khớp câu hỏi.
+    low_conf_block = (
+        "\n<CẢNH_BÁO_ĐỘ_TIN_CẬY>\n"
+        "Các chunk dưới đây có rerank score THẤP — chỉ giữ lại để bạn còn"
+        " dữ liệu verify. RẤT CÓ THỂ chunks không liên quan trực tiếp tới"
+        " câu hỏi. Verify CHỦ THỂ + HÀNH VI khớp câu hỏi trước khi trích."
+        " Nếu không khớp → trả lời theo nhánh THIẾU DỮ LIỆU, KHÔNG trích."
+        "\n</CẢNH_BÁO_ĐỘ_TIN_CẬY>\n"
+        if vector_low_confidence and vector_context else ""
+    )
     user = f"""<CYPHER_GUIDE>
 {cypher_guide}
 </CYPHER_GUIDE>
-
+{low_conf_block}
 <VECTOR_CHUNKS>
 {vector_context or "[Không có chunk phù hợp]"}
 </VECTOR_CHUNKS>
