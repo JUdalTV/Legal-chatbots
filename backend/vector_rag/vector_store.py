@@ -179,6 +179,51 @@ class VectorStore:
             return []
 
     # ════════════════════════════════════════════════════════════════
+    def scroll_all_contents(self, batch: int = 256) -> list[tuple[str, str]]:
+        """Scroll toàn bộ collection, trả list (point_id, content) — dùng để refit BM25."""
+        out: list[tuple[str, str]] = []
+        offset = None
+        while True:
+            points, offset = self.client.scroll(
+                collection_name=COLLECTION_NAME,
+                limit=batch,
+                offset=offset,
+                with_payload=["content"],
+                with_vectors=False,
+            )
+            for p in points:
+                content = (p.payload or {}).get("content")
+                if content:
+                    out.append((str(p.id), content))
+            if offset is None:
+                break
+        return out
+
+    def update_sparse_vectors(
+        self,
+        point_ids: list[str],
+        sparse_vectors: List[tuple[List[int], List[float]]],
+        batch: int = 128,
+    ) -> None:
+        """Cập nhật chỉ sparse vector cho các point đã tồn tại (giữ nguyên dense + payload)."""
+        from qdrant_client.models import PointVectors, SparseVector
+
+        records: list[PointVectors] = []
+        for pid, (ids, vals) in zip(point_ids, sparse_vectors):
+            if not ids:
+                continue
+            records.append(PointVectors(
+                id=pid,
+                vector={"sparse": SparseVector(indices=ids, values=vals)},
+            ))
+        for i in range(0, len(records), batch):
+            self.client.update_vectors(
+                collection_name=COLLECTION_NAME,
+                points=records[i:i + batch],
+            )
+        print(f"[vector_store] Updated sparse for {len(records)} points.")
+
+    # ════════════════════════════════════════════════════════════════
     def get_by_article(
         self,
         article_id: str,

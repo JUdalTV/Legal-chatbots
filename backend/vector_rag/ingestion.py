@@ -2,16 +2,15 @@
 ingestion.py — Vector RAG ingest pipeline cho 1 file luật.
 
   .docx | .pdf
-    → extract_text + clean_text                    (vector_rag/extractor.py)
-    → parse_to_articles → chunk_legal_document      (chunker_v2.py)
-    → BM25Encoder.fit + encode_doc (CPU)         ┐
-                                                 ├─ song song (ThreadPool)
-    → Embedder.encode (GPU, fp16)                ┘
-    → VectorStore.upsert_chunks (dense + sparse)   (vector_store.py)
+    → extract_text + clean_text                       (vector_rag/extractor.py)
+    → parse_to_articles → chunk_legal_document         (chunker_v2.py)
+    → Embedder.encode dense (GPU, fp16) chunks mới
+    → VectorStore.upsert_chunks (dense, sparse rỗng)   (vector_store.py)
+    → scroll TOÀN BỘ collection → BM25Encoder.fit
+    → encode_doc sparse cho all → update_vectors(sparse only)
 """
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .chunker_v2 import LegalChunk, chunk_legal_document, parse_to_articles
@@ -70,27 +69,30 @@ def ingest_file(
     store = VectorStore(host=qdrant_host, port=qdrant_port)
     store.init_collection(dim=embedder.dim, recreate=recreate)
 
-    # 5. Fit BM25 trên chunks này
+    # 5. Encode dense (GPU) cho chunks mới — sparse sẽ encode sau khi refit BM25 toàn corpus
     contents = [c.content for c in chunks]
-    bm25 = BM25Encoder().fit(contents)
+    print(f"  encoding {len(chunks)} chunks (dense, batch={embed_batch})...")
+    dense_vectors = embedder.encode(
+        contents, batch_size=embed_batch, show_progress=True,
+    )
+
+    # 6. Upsert chunks mới (sparse rỗng tạm thời) — để scroll bước 7 bao gồm cả chunks này
+    empty_sparse: list[tuple[list[int], list[float]]] = [([], []) for _ in chunks]
+    store.upsert_chunks(chunks, dense_vectors, empty_sparse)
+
+    # 7. Refit BM25 trên TOÀN BỘ corpus trong collection (gồm các luật đã ingest trước đó)
+    all_pairs = store.scroll_all_contents()
+    all_ids       = [pid for pid, _ in all_pairs]
+    all_contents  = [txt for _, txt in all_pairs]
+    bm25 = BM25Encoder().fit(all_contents)
     bm25.save(bm25_path)
-    print(f"  bm25: vocab={len(bm25.vocab)}  avgdl={bm25.avgdl:.1f}  → {bm25_path}")
+    print(f"  bm25 (full corpus): docs={len(all_contents)}  vocab={len(bm25.vocab)}  "
+          f"avgdl={bm25.avgdl:.1f}  → {bm25_path}")
 
-    # 6. Encode dense (GPU) + sparse (CPU) song song
-    print(f"  encoding {len(chunks)} chunks (dense+sparse parallel, batch={embed_batch})...")
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        dense_fut  = ex.submit(
-            embedder.encode, contents,
-            batch_size=embed_batch, show_progress=True,
-        )
-        sparse_fut = ex.submit(
-            lambda: [bm25.encode_doc(t) for t in contents]
-        )
-        dense_vectors  = dense_fut.result()
-        sparse_vectors = sparse_fut.result()
-
-    # 7. Upsert
-    store.upsert_chunks(chunks, dense_vectors, sparse_vectors)
+    # 8. Encode sparse cho toàn bộ + update_vectors (chỉ ghi đè sparse, giữ dense + payload)
+    print(f"  encoding sparse for {len(all_contents)} points...")
+    all_sparse = [bm25.encode_doc(t) for t in all_contents]
+    store.update_sparse_vectors(all_ids, all_sparse)
 
     info = store.get_collection_info()
     print(f"\n[vector_rag] DONE  points={info['points_count']}  status={info['status']}")

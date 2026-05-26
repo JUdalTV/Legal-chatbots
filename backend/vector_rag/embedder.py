@@ -1,6 +1,6 @@
 """
 embedder.py
-Dense embedding qua AITeamVN/Vietnamese_Embedding (fp16 trên GPU).
+Dense embedding qua truro7/vn-law-embedding (fp16 trên GPU).
 
 API:
     emb = Embedder(device="gpu")           # auto cuda → fp16
@@ -28,7 +28,7 @@ _MODEL_LOCK = threading.Lock()
 class Embedder:
     """Wrapper SentenceTransformer + fp16 + tokenizer-based token counter."""
 
-    MODEL_NAME = "AITeamVN/Vietnamese_Embedding"
+    MODEL_NAME = "truro7/vn-law-embedding"
 
     def __init__(self, device: str = "gpu", use_half: bool = True):
         self.device = self._resolve_device(device)
