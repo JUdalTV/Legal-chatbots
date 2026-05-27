@@ -50,6 +50,14 @@ async def _lifespan(app: FastAPI):
         neo4j_password=os.getenv("NEO4J_PASSWORD", "12345678"),
         device=os.getenv("RAG_DEVICE", "gpu"),
     )
+
+    # Warm-up underthesea word_tokenize singleton trước khi nhận request.
+    # Why: lazy-init của underthesea không thread-safe — câu hỏi đầu tiên
+    # thường tách thành ≥2 sub-query và encode_query song song → race trên
+    # `word_tokenize_model.featurizer` → AttributeError: 'NoneType' ... 'process'.
+    from backend.vector_rag.sparse_encoder import tokenize as _ut_warmup
+    _ut_warmup("khởi động bộ tách từ tiếng việt")
+
     try:
         yield
     finally:

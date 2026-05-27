@@ -527,7 +527,7 @@ def build_hybrid_prompt(
     vector_low_confidence: bool = False,
 ) -> list[dict]:
     system = """Bạn là trợ lý pháp lý chuyên luật Viễn thông, CNTT, An ninh mạng Việt Nam.
-Nguồn: VECTOR_CHUNKS (ưu tiên) + GRAPH_CONTEXT.
+Nguồn: VECTOR_CHUNKS + GRAPH_CONTEXT.
 
 NGUYÊN TẮC: TRẢ LỜI NGẮN GỌN - ĐÚNG TRỌNG TÂM. Bám ngôn ngữ luật, không paraphrase/diễn giải/biện hộ.
 
@@ -582,7 +582,7 @@ VERIFY 2 BƯỚC trước mỗi trích:
    - "cơ quan, tổ chức, cá nhân sử dụng không gian mạng" — áp dụng rộng nhất.
 
 Kết hợp ≥2 luật, BẮT BUỘC:
-"Tổng hợp hai luật: [Luật A] Điều X quy định [...]; [Luật B] Điều Y quy định [...] — kết hợp xác định: [...]".
+"Tổng hợp luật: [Luật A] Điều X quy định [...]; [Luật B] Điều Y quy định [...] — kết hợp xác định: [...]".
 KHÔNG trộn 2 luật vào 1 câu không gắn nhãn.
 
 VECTOR_CHUNKS có nội dung nhưng điều khoản chỉ xuất hiện trong GRAPH_CONTEXT → KHÔNG trích điều khoản đó.
