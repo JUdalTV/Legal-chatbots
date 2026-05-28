@@ -22,18 +22,21 @@
       --accent-soft: rgba(217, 119, 87, 0.12);
       --danger: #e06c75;
       --graph-backdrop: rgba(0, 0, 0, 0.68);
-      --graph-stage-bg: radial-gradient(ellipse at center, #232322 0%, #131312 100%);
-      --graph-edge: rgba(180, 178, 173, 0.42);
-      --graph-edge-label: rgba(220, 218, 213, 0.55);
+      --graph-stage-bg:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        #101319;
+      --graph-edge: rgba(114, 143, 184, 0.62);
+      --graph-edge-label: rgba(152, 163, 188, 0.74);
       --graph-edge-label-stroke: rgba(20, 20, 20, 0.85);
       --graph-node-title: #ffffff;
       --graph-node-title-stroke: rgba(0, 0, 0, 0.55);
-      --graph-node-type: rgba(220, 220, 220, 0.62);
+      --graph-node-type: rgba(140, 151, 180, 0.92);
       --graph-node-type-stroke: rgba(20, 20, 20, 0.7);
       --graph-floating-bg: rgba(20, 20, 20, 0.78);
       --graph-zoom-bg: rgba(28, 28, 26, 0.85);
       --graph-zoom-hover-bg: rgba(50, 50, 48, 0.9);
-      --graph-marker: rgba(180, 178, 173, 0.55);
+      --graph-marker: rgba(114, 143, 184, 0.72);
       --graph-dropped-shadow: rgba(255, 255, 255, 0.18);
       --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       --serif: "Source Serif Pro", Georgia, "Times New Roman", serif;
@@ -66,19 +69,22 @@
       --accent-soft: rgba(194, 94, 60, 0.12);
       --danger: #c44d56;
       --graph-backdrop: rgba(34, 30, 24, 0.32);
-      --graph-stage-bg: radial-gradient(ellipse at center, #fbf8f1 0%, #e9e4d8 100%);
-      --graph-edge: rgba(88, 83, 75, 0.42);
-      --graph-edge-label: rgba(64, 59, 52, 0.72);
-      --graph-edge-label-stroke: rgba(250, 248, 244, 0.9);
-      --graph-node-title: #2a2826;
-      --graph-node-title-stroke: rgba(255, 255, 255, 0.68);
-      --graph-node-type: rgba(58, 54, 49, 0.72);
-      --graph-node-type-stroke: rgba(255, 255, 255, 0.72);
-      --graph-floating-bg: rgba(255, 252, 246, 0.82);
-      --graph-zoom-bg: rgba(255, 252, 246, 0.9);
-      --graph-zoom-hover-bg: rgba(241, 237, 229, 0.96);
-      --graph-marker: rgba(88, 83, 75, 0.58);
-      --graph-dropped-shadow: rgba(80, 72, 62, 0.18);
+      --graph-stage-bg:
+        linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        #101319;
+      --graph-edge: rgba(114, 143, 184, 0.62);
+      --graph-edge-label: rgba(152, 163, 188, 0.78);
+      --graph-edge-label-stroke: rgba(12, 14, 20, 0.92);
+      --graph-node-title: #ffffff;
+      --graph-node-title-stroke: rgba(0, 0, 0, 0.52);
+      --graph-node-type: rgba(140, 151, 180, 0.92);
+      --graph-node-type-stroke: rgba(12, 14, 20, 0.8);
+      --graph-floating-bg: rgba(12, 15, 22, 0.84);
+      --graph-zoom-bg: rgba(13, 17, 26, 0.9);
+      --graph-zoom-hover-bg: rgba(27, 34, 48, 0.96);
+      --graph-marker: rgba(114, 143, 184, 0.72);
+      --graph-dropped-shadow: rgba(255, 255, 255, 0.18);
       color-scheme: light;
     }
     :root[data-theme="light"] ::-webkit-scrollbar-thumb { background: #cfccc5; }
@@ -88,6 +94,15 @@
     :root[data-theme="light"] .neo-edge-label,
     :root[data-theme="light"] .neo-node text.neo-title,
     :root[data-theme="light"] .neo-node .neo-label-type { paint-order: stroke; }
+    :root[data-theme="light"] .graph-legend,
+    :root[data-theme="light"] .graph-hint,
+    :root[data-theme="light"] .graph-zoom-btn {
+      color: #e8edf7;
+      border-color: rgba(124, 139, 170, 0.28);
+    }
+    :root[data-theme="light"] .graph-legend h4 {
+      color: rgba(160, 172, 198, 0.82);
+    }
 
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; width: 100%; }
@@ -543,6 +558,7 @@
       white-space: normal;
     }
     .msg.assistant .msg-content.streaming-markdown {
+      contain: layout style;
       white-space: normal;
     }
     .streaming-markdown .live-md-done:empty,
@@ -784,13 +800,15 @@
       z-index: 100;
       background: var(--graph-backdrop);
       display: grid;
-      place-items: center;
-      padding: 22px;
+      align-items: center;
+      justify-items: end;
+      padding: 10px 24px 10px 272px;
     }
     .graph-modal[hidden] { display: none; }
     .graph-panel {
-      width: min(1500px, 96vw);
-      height: min(940px, 92vh);
+      width: calc(100vw - 296px);
+      height: calc(100vh - 20px);
+      position: relative;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -800,9 +818,9 @@
       overflow: hidden;
     }
     .graph-modal-header {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
-      justify-content: space-between;
       gap: 12px;
       padding: 12px 14px;
       border-bottom: 1px solid var(--border-soft);
@@ -813,6 +831,7 @@
       flex-direction: column;
       gap: 2px;
       min-width: 0;
+      max-width: 100%;
     }
     .graph-modal-title strong {
       font-size: 14px;
@@ -826,25 +845,29 @@
       text-overflow: ellipsis;
     }
     .graph-close {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      z-index: 20;
+      border-radius: 9px;
       display: grid;
       place-items: center;
-      border: 1px solid var(--border-soft);
-      background: var(--bg-elevated);
-      color: var(--text-muted);
-      font-size: 20px;
+      border: 1px solid rgba(217, 119, 87, 0.52);
+      background: rgba(217, 119, 87, 0.14);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 800;
       line-height: 1;
+      flex-shrink: 0;
     }
     .graph-close:hover {
       color: var(--text);
-      border-color: var(--border);
+      border-color: var(--accent);
+      background: var(--accent-soft);
     }
     .graph-modal-body {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
+      grid-template-columns: minmax(0, 1fr) 280px;
     }
     .graph-stage {
       position: relative;
@@ -852,7 +875,19 @@
       min-height: 0;
       overflow: hidden;
       background: var(--graph-stage-bg);
+      background-size: 42px 42px, 42px 42px, auto;
       cursor: grab;
+    }
+    .graph-stage::before {
+      content: none;
+    }
+    .graph-stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.18) 100%);
+      opacity: 0.72;
     }
     .graph-stage.panning { cursor: grabbing; }
     .graph-stage svg.graph-canvas-svg {
@@ -860,15 +895,21 @@
       width: 100%;
       height: 100%;
       user-select: none;
+      position: relative;
+      z-index: 1;
     }
     .neo-edge {
       stroke: var(--graph-edge);
-      stroke-width: 1.3;
-      opacity: 0.95;
+      stroke-width: 1.7;
+      opacity: 0.82;
       cursor: pointer;
-      transition: stroke 0.12s;
+      transition: opacity 0.12s, stroke 0.12s, stroke-width 0.12s;
     }
-    .neo-edge-group:hover .neo-edge { stroke: var(--accent); }
+    .neo-edge-group:hover .neo-edge {
+      stroke: var(--accent);
+      stroke-width: 2.2;
+      opacity: 1;
+    }
     .neo-edge-group:hover .neo-edge-label { fill: var(--text); opacity: 1; }
     .neo-marker { fill: var(--graph-marker); }
     .neo-edge-label {
@@ -882,52 +923,71 @@
       pointer-events: none;
       letter-spacing: 0.3px;
     }
-    .neo-node { cursor: grab; }
-    .neo-node.dragging { cursor: grabbing; }
-    .neo-node .neo-halo {
-      opacity: 0.18;
-      pointer-events: none;
-      transition: opacity 0.18s, r 0.18s;
+    .neo-node {
+      cursor: grab;
     }
-    .neo-node:hover .neo-halo { opacity: 0.34; }
+    .neo-node.dragging { cursor: grabbing; }
+    .neo-node .neo-shadow {
+      fill: rgba(0, 0, 0, 0.34);
+      pointer-events: none;
+    }
+    .neo-node .neo-depth {
+      pointer-events: none;
+      opacity: 0.34;
+    }
+    .neo-node .neo-halo {
+      fill: none;
+      opacity: 0.72;
+      pointer-events: none;
+      stroke-width: 2.2;
+      transition: opacity 0.12s, stroke-width 0.12s;
+    }
+    .neo-node .neo-core {
+      pointer-events: none;
+    }
+    .neo-node .neo-highlight {
+      fill: rgba(255, 255, 255, 0.18);
+      pointer-events: none;
+    }
+    .neo-node:hover .neo-halo { opacity: 1; stroke-width: 3; }
     .neo-node.dragging .neo-halo,
-    .neo-node.pinned .neo-halo { opacity: 0.42; }
+    .neo-node.pinned .neo-halo { opacity: 1; }
     .neo-node circle.neo-body {
-      stroke-width: 2.4;
+      stroke-width: 3;
       transition: stroke-width 0.12s;
     }
-    .neo-node:hover circle.neo-body { stroke-width: 3; }
+    .neo-node:hover circle.neo-body {
+      stroke-width: 4;
+    }
     .neo-node.pinned circle.neo-body {
-      stroke-dasharray: 5 4;
-      stroke-width: 2.4;
+      stroke-width: 3.2;
     }
     .neo-node.dropped circle.neo-body {
-      stroke-width: 2.8;
-      filter: drop-shadow(0 0 6px var(--graph-dropped-shadow));
+      stroke-width: 4;
     }
     .neo-node.dragging circle.neo-body {
-      stroke-width: 3.4;
+      stroke-width: 4.6;
     }
     .neo-node text.neo-title {
       fill: var(--graph-node-title);
       font-family: var(--sans);
-      font-size: 10.5px;
-      font-weight: 700;
-      letter-spacing: 0.4px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0;
       text-anchor: middle;
       pointer-events: none;
       text-transform: uppercase;
       paint-order: stroke;
       stroke: var(--graph-node-title-stroke);
-      stroke-width: 2.2px;
+      stroke-width: 2.6px;
       stroke-linejoin: round;
     }
     .neo-node .neo-label-type {
       fill: var(--graph-node-type);
       font-family: var(--mono);
-      font-size: 8.5px;
+      font-size: 9px;
       font-weight: 600;
-      letter-spacing: 1.2px;
+      letter-spacing: 0.8px;
       text-transform: uppercase;
       text-anchor: middle;
       pointer-events: none;
@@ -1034,7 +1094,7 @@
       background: var(--bg-elevated);
       min-width: 0;
       overflow: auto;
-      padding: 14px;
+      padding: 12px;
     }
     .graph-inspector h3 {
       margin: 0 0 8px;
@@ -1224,10 +1284,20 @@
       .composer-wrap { padding: 10px 14px 16px; }
       .suggestion-grid { grid-template-columns: 1fr; }
       .api-input { width: 100%; }
-      .graph-modal { padding: 8px; }
+      .graph-modal { padding: 0; }
       .graph-panel { width: 100vw; height: 100vh; border-radius: 0; }
       .graph-modal-body { grid-template-columns: 1fr; grid-template-rows: 1fr 220px; }
       .graph-inspector { border-left: none; border-top: 1px solid var(--border-soft); }
+    }
+    @media (min-width: 761px) and (max-width: 1100px) {
+      .graph-modal {
+        padding: 16px;
+        place-items: center;
+      }
+      .graph-panel {
+        width: calc(100vw - 32px);
+        height: calc(100vh - 32px);
+      }
     }
   </style>
 </head>
@@ -1309,7 +1379,7 @@
           <strong>Neo4j subgraph</strong>
           <span id="graphMeta">No graph loaded</span>
         </div>
-        <button id="graphClose" class="graph-close" type="button" title="Đóng">×</button>
+        <button id="graphClose" class="graph-close" type="button" title="Dong" aria-label="Dong graph">X</button>
       </div>
       <div class="graph-modal-body">
         <div id="graphStage" class="graph-stage"></div>
@@ -1555,18 +1625,35 @@
       let tail = el.querySelector(".live-md-tail");
       if (!done || !tail) {
         el.innerHTML = renderStreamingMarkdown(value, showCaret);
+        done = el.querySelector(".live-md-done");
+        tail = el.querySelector(".live-md-tail");
+        if (done) done.dataset.doneSrc = parts.done || "";
+        if (tail) tail._tailSource = parts.tail || "";
         return;
       }
 
-      const doneLen = Number(done.dataset.doneLen || "0");
-      if (doneLen !== parts.done.length) {
-        done.innerHTML = parts.done ? renderMarkdown(parts.done) : "";
+      // done: append-only delta. Khi paragraph mới được "đóng cứng" (boundary \n\n
+      // tiến tới), chỉ render delta + append HTML, KHÔNG rebuild lại toàn bộ
+      // paragraph cũ — tránh DOM teardown/rebuild gây flash ở câu trả lời dài.
+      const prevDone = done.dataset.doneSrc || "";
+      if (parts.done !== prevDone) {
+        if (prevDone && parts.done.startsWith(prevDone)) {
+          const delta = parts.done.slice(prevDone.length);
+          if (delta.trim()) {
+            const tmp = document.createElement("div");
+            tmp.innerHTML = renderMarkdown(delta);
+            while (tmp.firstChild) done.appendChild(tmp.firstChild);
+          }
+        } else {
+          // Lần đầu, hoặc format thay đổi không phải prefix → rebuild
+          done.innerHTML = parts.done ? renderMarkdown(parts.done) : "";
+        }
+        done.dataset.doneSrc = parts.done;
         done.dataset.doneLen = String(parts.done.length);
       }
 
-      const tailHtml = parts.tail ? renderMarkdown(parts.tail) : "";
       if (tail._tailSource !== parts.tail) {
-        tail.innerHTML = tailHtml;
+        tail.innerHTML = parts.tail ? renderMarkdown(parts.tail) : "";
         tail._tailSource = parts.tail;
       }
 
@@ -2182,6 +2269,8 @@
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
         line.setAttribute("class", "neo-edge");
         line.setAttribute("marker-end", `url(#${markerId})`);
+        const sourceNode = currentGraphView.nodes.get(edge.source);
+        if (sourceNode?.color) line.style.stroke = hexToRgba(sourceNode.color, 0.72);
         const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
         label.setAttribute("class", "neo-edge-label");
         label.setAttribute("text-anchor", "middle");
@@ -2201,38 +2290,52 @@
         g.setAttribute("class", "neo-node" + (node.pinned ? " pinned" : ""));
         g.setAttribute("data-node-id", node.id);
 
-        const safeId = escapeAttr(node.id);
-        const haloGradId = `halo-${safeId}`;
-        const bodyGradId = `body-${safeId}`;
-        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-        defs.innerHTML = `
-          <radialGradient id="${haloGradId}" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"   stop-color="${node.color}" stop-opacity="0.85"/>
-            <stop offset="55%"  stop-color="${node.color}" stop-opacity="0.30"/>
-            <stop offset="100%" stop-color="${node.color}" stop-opacity="0"/>
-          </radialGradient>
-          <radialGradient id="${bodyGradId}" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"   stop-color="${node.color}" stop-opacity="0.55"/>
-            <stop offset="55%"  stop-color="${node.color}" stop-opacity="0.18"/>
-            <stop offset="100%" stop-color="${node.color}" stop-opacity="0.05"/>
-          </radialGradient>
-        `;
-        g.appendChild(defs);
+        const shadow = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+        shadow.setAttribute("class", "neo-shadow");
+        shadow.setAttribute("cx", "5");
+        shadow.setAttribute("cy", "7");
+        shadow.setAttribute("rx", (node.r * 0.92).toFixed(1));
+        shadow.setAttribute("ry", (node.r * 0.76).toFixed(1));
+        g.appendChild(shadow);
 
-        // Outer halo glow
+        const depth = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        depth.setAttribute("class", "neo-depth");
+        depth.setAttribute("cx", "2.8");
+        depth.setAttribute("cy", "4.2");
+        depth.setAttribute("r", node.r);
+        depth.setAttribute("fill", hexToRgba(node.color, 0.34));
+        g.appendChild(depth);
+
         const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         halo.setAttribute("class", "neo-halo");
-        halo.setAttribute("r", node.r + 14);
-        halo.setAttribute("fill", `url(#${haloGradId})`);
+        halo.setAttribute("r", node.r + 5);
+        halo.setAttribute("stroke", node.color);
+        if (node.pinned || type === "ROLE" || type === "OBJECT") {
+          halo.setAttribute("stroke-dasharray", "5 4");
+        }
         g.appendChild(halo);
 
-        // Bubble body: radial gradient (darker outer, brighter center) + vivid ring
         const body = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         body.setAttribute("class", "neo-body");
         body.setAttribute("r", node.r);
-        body.setAttribute("fill", `url(#${bodyGradId})`);
+        body.setAttribute("fill", hexToRgba(node.color, 0.20));
         body.setAttribute("stroke", node.color);
         g.appendChild(body);
+
+        const core = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        core.setAttribute("class", "neo-core");
+        core.setAttribute("r", Math.max(12, node.r * 0.42).toFixed(1));
+        core.setAttribute("fill", hexToRgba(node.color, 0.18));
+        g.appendChild(core);
+
+        const highlight = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+        highlight.setAttribute("class", "neo-highlight");
+        highlight.setAttribute("cx", (-node.r * 0.22).toFixed(1));
+        highlight.setAttribute("cy", (-node.r * 0.28).toFixed(1));
+        highlight.setAttribute("rx", (node.r * 0.34).toFixed(1));
+        highlight.setAttribute("ry", (node.r * 0.14).toFixed(1));
+        highlight.setAttribute("transform", "rotate(-24)");
+        g.appendChild(highlight);
 
         // Title text inside bubble (uppercase, white, stroked for legibility)
         titleLines.forEach((line, i) => {
@@ -2353,15 +2456,15 @@
           if (el) el.setAttribute("transform", `translate(${n.x.toFixed(2)} ${n.y.toFixed(2)})`);
         });
 
-        alpha *= 0.992;
-        if (alpha > 0.005) {
+        alpha *= 0.985;
+        if (alpha > 0.01) {
           graphSimHandle = requestAnimationFrame(tick);
         } else {
           graphSimHandle = null;
         }
       }
       function reheat() {
-        alpha = Math.max(alpha, 0.45);
+        alpha = Math.max(alpha, 0.32);
         if (!graphSimHandle) graphSimHandle = requestAnimationFrame(tick);
       }
       graphSimHandle = requestAnimationFrame(tick);
@@ -2373,6 +2476,7 @@
           `translate(${graphViewport.tx} ${graphViewport.ty}) scale(${graphViewport.scale})`,
         );
       }
+      const maxGraphZoom = 2;
       function svgPoint(evt) {
         const rect = svg.getBoundingClientRect();
         return {
@@ -2381,29 +2485,71 @@
         };
       }
       function zoomAround(mx, my, newScale) {
-        newScale = Math.max(0.25, Math.min(3, newScale));
+        newScale = Math.max(0.16, Math.min(maxGraphZoom, newScale));
         const k = newScale / graphViewport.scale;
         graphViewport.tx = mx - (mx - graphViewport.tx) * k;
         graphViewport.ty = my - (my - graphViewport.ty) * k;
         graphViewport.scale = newScale;
         applyViewport();
       }
-      applyViewport();
+      function fitGraphToView() {
+        if (!nodes.length) {
+          applyViewport();
+          return;
+        }
+        const pad = 96;
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        nodes.forEach((n) => {
+          const labelPad = 34;
+          minX = Math.min(minX, n.x - n.r - labelPad);
+          minY = Math.min(minY, n.y - n.r - labelPad);
+          maxX = Math.max(maxX, n.x + n.r + labelPad);
+          maxY = Math.max(maxY, n.y + n.r + labelPad);
+        });
+        const contentW = Math.max(1, maxX - minX);
+        const contentH = Math.max(1, maxY - minY);
+        const scale = Math.max(
+          0.16,
+          Math.min(1, Math.min((width - pad * 2) / contentW, (height - pad * 2) / contentH)),
+        );
+        graphViewport = {
+          scale,
+          tx: width / 2 - ((minX + maxX) / 2) * scale,
+          ty: height / 2 - ((minY + maxY) / 2) * scale,
+        };
+        applyViewport();
+      }
+      fitGraphToView();
+      const wheelReadyAt = performance.now() + 450;
+      let pendingWheelZoom = null;
+      let wheelZoomFrame = 0;
 
       // Wheel zoom
       svg.addEventListener("wheel", (event) => {
         event.preventDefault();
+        if (performance.now() < wheelReadyAt) return;
         const rect = svg.getBoundingClientRect();
         const mx = event.clientX - rect.left;
         const my = event.clientY - rect.top;
-        const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
-        zoomAround(mx, my, graphViewport.scale * factor);
+        const steps = Math.min(1.4, Math.max(0.15, Math.abs(event.deltaY) / 120));
+        const factor = Math.pow(1.025, event.deltaY < 0 ? steps : -steps);
+        pendingWheelZoom = pendingWheelZoom
+          ? { mx, my, factor: pendingWheelZoom.factor * factor }
+          : { mx, my, factor };
+        if (wheelZoomFrame) return;
+        wheelZoomFrame = requestAnimationFrame(() => {
+          wheelZoomFrame = 0;
+          const pending = pendingWheelZoom;
+          pendingWheelZoom = null;
+          if (pending) zoomAround(pending.mx, pending.my, graphViewport.scale * pending.factor);
+        });
       }, { passive: false });
 
       // Revert: reset viewport + restore node positions to initial layout
       function revertGraph() {
-        graphViewport = { scale: 1, tx: 0, ty: 0 };
-        applyViewport();
         nodes.forEach((n) => {
           n.x = n.initialX;
           n.y = n.initialY;
@@ -2424,6 +2570,7 @@
             el.classList.remove("dropped", "dragging");
           }
         });
+        fitGraphToView();
         alpha = 1;
         reheat();
       }
@@ -2435,8 +2582,8 @@
           const mx = rect.width / 2;
           const my = rect.height / 2;
           const mode = btn.dataset.zoom;
-          if (mode === "in") zoomAround(mx, my, graphViewport.scale * 1.25);
-          else if (mode === "out") zoomAround(mx, my, graphViewport.scale / 1.25);
+          if (mode === "in") zoomAround(mx, my, graphViewport.scale * 1.16);
+          else if (mode === "out") zoomAround(mx, my, graphViewport.scale / 1.16);
           else if (mode === "revert") revertGraph();
         });
       });
@@ -2741,7 +2888,14 @@
         }
       }
 
-      scheduleScrollSync();
+      // Pin scroll synchronously — phải set scrollTop NGAY trong rAF này (sau khi DOM
+      // đã ghi xong), trước khi browser paint frame mới. Nếu đẩy sang rAF kế tiếp qua
+      // scheduleScrollSync(), browser sẽ paint 1 frame với content cao hơn nhưng scroll
+      // cũ → user thấy text bị "đẩy lên" rồi mới snap xuống = giật khi kịch trang.
+      if (state.stuckToBottom) {
+        els.chat.scrollTop = els.chat.scrollHeight;
+      }
+      syncScrollBottomBtn();
     }
 
     function appendTextDiff(el, nextText) {
@@ -3112,10 +3266,6 @@
 
     els.graphClose.addEventListener("click", closeNeo4jGraph);
 
-    els.graphModal.addEventListener("click", (event) => {
-      if (event.target === els.graphModal) closeNeo4jGraph();
-    });
-
     els.graphStage.addEventListener("click", (event) => {
       if (graphSuppressClick) return;
       const nodeEl = event.target.closest("[data-node-id]");
@@ -3129,10 +3279,6 @@
         const edge = currentGraphView.edges.get(edgeEl.dataset.edgeId);
         if (edge) showGraphInspector("edge", edge);
       }
-    });
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !els.graphModal.hidden) closeNeo4jGraph();
     });
 
     els.thinkingBtns.forEach((btn) => {
