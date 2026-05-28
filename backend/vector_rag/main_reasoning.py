@@ -90,30 +90,39 @@ _LAW_BY_FILENAME = {
 
 
 def discover_tasks() -> list[TaskFile]:
-    """Quét BASE_IN, sinh danh sách TaskFile cho từng docx."""
+    """
+    Quét tất cả subfolder dưới BASE_IN, sinh TaskFile cho từng file .docx và .md.
+    - Subfolder `ket_hop_luat`: law_id=None (cross-law)
+    - Các subfolder khác: map theo tên file (An_Ninh_Mang / Vien_thong / CNTT)
+    """
     tasks: list[TaskFile] = []
-    for sub in ("tinh_huong_thuc_te_suy_luan",
-                "tinh_huong_thuc_te_phap_ly_chuyen_sau",
-                "ket_hop_luat"):
-        in_dir = BASE_IN / sub
-        if not in_dir.exists():
-            print(f"[warn] skip missing {in_dir}")
-            continue
+    if not BASE_IN.exists():
+        print(f"[warn] BASE_IN không tồn tại: {BASE_IN}")
+        return tasks
+    for in_dir in sorted(p for p in BASE_IN.iterdir() if p.is_dir()):
+        sub = in_dir.name
         out_dir = BASE_OUT / sub
         out_dir.mkdir(parents=True, exist_ok=True)
-        for docx in sorted(in_dir.glob("*.docx")):
-            stem = docx.stem
+        # Nhận cả .docx và .md, sort để xếp ổn định
+        sources = sorted(
+            [p for p in in_dir.iterdir() if p.suffix.lower() in (".docx", ".md")]
+        )
+        for src in sources:
+            # Skip Word lock files (~$Foo.docx) tự sinh khi mở trong Word
+            if src.name.startswith("~$"):
+                continue
+            stem = src.stem
             if sub == "ket_hop_luat":
                 law_id = None
                 law_title = "Liên luật (cross-law)"
             else:
                 law = _LAW_BY_FILENAME.get(stem)
                 if law is None:
-                    print(f"[warn] không map được law cho {docx} — bỏ qua")
+                    print(f"[warn] không map được law cho {src} — bỏ qua")
                     continue
                 law_id, law_title = law
             tasks.append(TaskFile(
-                task=sub, name=stem, src=docx,
+                task=sub, name=stem, src=src,
                 out=out_dir / f"{stem}.md",
                 law_id=law_id, law_title=law_title,
             ))
@@ -135,15 +144,47 @@ _RX_STRIP_LEADING = re.compile(
 )
 
 
-def parse_questions(docx_path: Path) -> list[dict[str, str]]:
+def _parse_md_questions(md_path: Path) -> list[dict[str, str]]:
     """
-    Mỗi docx chứa N tables; câu hỏi nằm trong các table có ô đầu mở đầu bằng
-    "Câu N." (suy_luan/ket_hop_luat) hoặc "Câu hỏi" (phap_ly_chuyen_sau).
-    Bỏ qua các bảng phụ khác (vd "Hành vi", "Giai đoạn") xen kẽ.
+    Parse file MD theo cấu trúc:
+        ## Câu N — <Title>
+        <body lines...>
+        ## Câu N+1 — ...
+
+    Trả về list {qno, question} với question = "<Title>\n<body>" đã trim.
     """
+    text = md_path.read_text(encoding="utf-8")
+    # Match từng heading + nội dung tới heading kế tiếp (hoặc hết file)
+    pattern = re.compile(
+        r"(?ms)^##\s+C[aâ]u\s+\d+\b[^\n]*\n(.*?)(?=^##\s+C[aâ]u\s+\d+\b|\Z)"
+    )
+    headings = re.findall(r"(?m)^##\s+C[aâ]u\s+\d+\b[^\n]*$", text)
+    bodies = pattern.findall(text)
+    out: list[dict[str, str]] = []
+    for i, (hdr, body) in enumerate(zip(headings, bodies), 1):
+        # Bỏ "## Câu N — " ở đầu heading, giữ phần title (sau "—")
+        title = re.sub(r"^##\s+C[aâ]u\s+\d+\s*[—\-:.]?\s*", "", hdr).strip()
+        body_clean = body.strip()
+        if title and body_clean:
+            question = f"{title}\n\n{body_clean}"
+        else:
+            question = title or body_clean
+        if not question:
+            continue
+        out.append({"qno": str(i), "question": question})
+    return out
+
+
+def parse_questions(src_path: Path) -> list[dict[str, str]]:
+    """
+    Hỗ trợ cả DOCX (table-based) và MD (heading `## Câu N`).
+    """
+    if src_path.suffix.lower() == ".md":
+        return _parse_md_questions(src_path)
+
     from docx import Document
 
-    doc = Document(str(docx_path))
+    doc = Document(str(src_path))
     out: list[dict[str, str]] = []
     qno = 0
     for tbl in doc.tables:
@@ -152,8 +193,6 @@ def parse_questions(docx_path: Path) -> list[dict[str, str]]:
         raw = tbl.rows[0].cells[0].text.strip()
         if not raw or not _RX_QUESTION_TABLE.match(raw):
             continue
-
-        # Bỏ tiền tố "Câu N." / "Câu hỏi" để giữ nội dung thuần
         text = _RX_STRIP_LEADING.sub("", raw, count=1).strip()
         if not text:
             continue
@@ -370,12 +409,18 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Số worker song song (mặc định 7: 3+3+1).")
     p.add_argument("--limit-per-file", type=int, default=None,
                    help="Chỉ chạy N câu đầu mỗi file (smoke test).")
+    p.add_argument("--task", action="append", default=None,
+                   help="Chỉ chạy task có tên trùng (subfolder name). "
+                        "Lặp lại flag để chọn nhiều task.")
     return p
 
 
 def main() -> int:
     args = build_parser().parse_args()
     tasks = discover_tasks()
+    if args.task:
+        wanted = set(args.task)
+        tasks = [t for t in tasks if t.task in wanted]
     if not tasks:
         print("[error] không tìm thấy task nào trong", BASE_IN)
         return 1
