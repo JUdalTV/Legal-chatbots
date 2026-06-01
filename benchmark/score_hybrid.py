@@ -1,8 +1,12 @@
 """
-score_benchmark.py — Tính điểm benchmark cho 3 luật dựa trên ground truth.
+score_hybrid.py — Tính điểm benchmark cho 3 luật dựa trên ground truth.
 
-Đọc 3 file JSON (benchmark_luat*.json), với mỗi câu hỏi tính 3 metric so với
-groundtruth + reference, tổng hợp ra file Markdown.
+Đọc 3 file câu trả lời Markdown (benchmark/score_benchmark/hybrid/legal_qa_answers_*.md)
++ file groundtruth (Dap_an_90_cau_hoi_groundtruth.md). Với mỗi câu hỏi tính 3 metric
+so với groundtruth + reference, tổng hợp ra file Markdown.
+
+(Trước đây đọc từ benchmark_luat*.json; các JSON đó đã được thay bằng .md khi gộp
+thư mục benchmark. Parser Markdown dùng chung với score_vector.py.)
 
 Metrics:
 - semantic_score: cosine similarity giữa model_answer & ground_truth
@@ -14,13 +18,12 @@ Metrics:
 Tổng điểm (mặc định): 0.5 * semantic + 0.3 * citation + 0.2 * keyword.
 
 Chạy:
-    python benchmark/score_benchmark.py
-    python benchmark/score_benchmark.py --output benchmark/report.md
+    python benchmark/score_hybrid.py
+    python benchmark/score_hybrid.py --device cpu --output benchmark/report.md
 """
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 import unicodedata
@@ -40,23 +43,29 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 
+_HYBRID_DIR = ROOT / "benchmark" / "score_benchmark" / "hybrid"
+
 DATASETS: list[dict] = [
     {
         "key": "anm",
         "title": "Luật An ninh mạng 116/2025/QH15",
-        "path": ROOT / "benchmark" / "benchmark_luatAnNinhMang.json",
+        "answers": _HYBRID_DIR / "legal_qa_answers_anm.md",
     },
     {
         "key": "vt",
         "title": "Luật Viễn thông 24/2023/QH15",
-        "path": ROOT / "benchmark" / "benchmark_luatVienThong.json",
+        "answers": _HYBRID_DIR / "legal_qa_answers_vt.md",
     },
     {
         "key": "cntt",
         "title": "Luật Công nghệ thông tin 65/VBHN-VPQH",
-        "path": ROOT / "benchmark" / "benchmark_luatCNTT.json",
+        "answers": _HYBRID_DIR / "legal_qa_answers_cntt.md",
     },
 ]
+
+GROUNDTRUTH_PATH = (
+    ROOT / "benchmark" / "score_benchmark" / "Evaluate" / "Dap_an_90_cau_hoi_groundtruth.md"
+)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -407,32 +416,55 @@ def render_md(per_law: list[dict], output: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--input-dir",
+        "--answers-dir",
         default=None,
-        help="Directory containing benchmark_luat*.json files. Defaults to benchmark/.",
+        help="Thư mục chứa legal_qa_answers_*.md (hybrid). Mặc định benchmark/score_benchmark/hybrid/.",
+    )
+    parser.add_argument(
+        "--groundtruth",
+        default=str(GROUNDTRUTH_PATH),
+        help="File groundtruth MD (Dap_an_90_cau_hoi_groundtruth.md).",
     )
     parser.add_argument(
         "--output", "-o",
-        default=str(ROOT / "benchmark" / "benchmark_score_report.md"),
+        default=str(ROOT / "benchmark" / "score_benchmark" / "Evaluate" / "hybrid_score_report.md"),
         help="File MD output",
     )
     parser.add_argument("--device", default="gpu", help="gpu | cpu cho embedder")
     args = parser.parse_args()
 
-    # Load datasets
+    # Parser Markdown dùng chung với score_vector; import tại đây để tránh circular import
+    # (score_vector import ngược lại các hàm chấm điểm từ module này).
+    from benchmark.score_vector import (
+        difficulty_for_number,
+        parse_groundtruth_md,
+        parse_vector_md,
+    )
+
+    groundtruth = parse_groundtruth_md(Path(args.groundtruth))
+
+    # Load datasets từ file .md (ghép model_answer với ground_truth theo (luật, số câu)).
     per_law: list[dict] = []
     for ds in DATASETS:
         path = (
-            Path(args.input_dir) / Path(ds["path"]).name
-            if args.input_dir else Path(ds["path"])
+            Path(args.answers_dir) / Path(ds["answers"]).name
+            if args.answers_dir else Path(ds["answers"])
         )
         if not path.exists():
             print(f"[warn] không tìm thấy {path}, bỏ qua")
             continue
-        data = json.loads(path.read_text(encoding="utf-8"))
-        # CNTT dùng key "questions", còn lại dùng "results"
-        rows = data.get("results") or data.get("questions") or []
-        per_law.append({"title": ds["title"], "key": ds["key"], "results": rows})
+        results: list[dict] = []
+        for item in parse_vector_md(path):
+            gt = groundtruth.get((ds["key"], item["number"]), {})
+            results.append({
+                "id": item["id"],
+                "difficulty": item.get("difficulty") or difficulty_for_number(item["number"]),
+                "question": item.get("question") or gt.get("question", ""),
+                "reference": item.get("reference", ""),
+                "model_answer": item.get("model_answer", ""),
+                "ground_truth": gt.get("ground_truth", ""),
+            })
+        per_law.append({"title": ds["title"], "key": ds["key"], "results": results})
 
     if not per_law:
         print("[error] không có dataset nào để chấm.")

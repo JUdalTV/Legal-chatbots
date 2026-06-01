@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Chat</title>
+  <!-- GitHub Pages phục vụ index.html mặc định; chuyển hướng sang app ui.html. -->
+  <meta http-equiv="refresh" content="0; url=ui.html" />
+  <link rel="canonical" href="ui.html" />
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #1f1f1e;
+      color: #e8e6e3;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .wrap {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+    a { color: #d97757; }
+  </style>
+  <script>
+    // Giữ nguyên query string + hash khi chuyển hướng (vd ?law=... hoặc #...).
+    location.replace("ui.html" + location.search + location.hash);
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <p>Đang mở Legal Chat…</p>
+    <p>Nếu không tự chuyển, bấm <a href="ui.html">vào đây</a>.</p>
+  </div>
+</body>
+</html>

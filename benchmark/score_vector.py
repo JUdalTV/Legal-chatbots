@@ -65,6 +65,7 @@ LAW_SPECS = [
 ]
 
 DEFAULT_GROUNDTRUTH_CANDIDATES = [
+    ROOT / "benchmark" / "score_benchmark" / "Evaluate" / "Dap_an_90_cau_hoi_groundtruth.md",
     ROOT / "benchmark" / "vector_benchmark" / "Dap_an_90_cau_hoi_groundtruth.md",
     ROOT / "benchmark" / "hybrid_metric_benchmark" / "Dap_an_90_cau_hoi_groundtruth.md",
     ROOT / "benchmark" / "metric_benchmark" / "Dap_an_90_cau_hoi_groundtruth.md",
@@ -235,9 +236,15 @@ def parse_vector_md(path: Path) -> list[dict]:
             continue
 
         if stripped.startswith("### "):
-            flush()
-            current_difficulty = difficulty_from_heading(stripped) or current_difficulty
-            continue
+            diff = difficulty_from_heading(stripped)
+            if diff is not None:
+                # Difficulty section header ("### Easy/Medium/Hard") → boundary.
+                flush()
+                current_difficulty = diff
+                continue
+            # Otherwise it is a markdown sub-heading inside an answer body
+            # (e.g. "### 1. Cơ chế bảo vệ…"). Treat it as ordinary content so
+            # the answer is not truncated; fall through to the section append.
 
         if current is None:
             continue
@@ -557,7 +564,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--vector-dir",
-        default=str(ROOT / "benchmark" / "vector_benchmark"),
+        default=str(ROOT / "benchmark" / "score_benchmark" / "vector"),
         help="Directory containing legal_qa_answers_vector_*.md files.",
     )
     parser.add_argument(
@@ -568,7 +575,7 @@ def main() -> int:
     parser.add_argument(
         "--output",
         "-o",
-        default=str(ROOT / "benchmark" / "vector_benchmark" / "benchmark_vector_score_report.md"),
+        default=str(ROOT / "benchmark" / "score_benchmark" / "Evaluate" / "vector_score_report.md"),
     )
     parser.add_argument("--device", default="gpu")
     parser.add_argument(
