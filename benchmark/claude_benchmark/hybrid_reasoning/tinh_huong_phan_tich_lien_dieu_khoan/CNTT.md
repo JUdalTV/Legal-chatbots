@@ -1,6 +1,6 @@
 # LUẬT CÔNG NGHỆ THÔNG TIN (VĂN BẢN HỢP NHẤT 65/VBHN-VPQH)
 
-## Câu 21 — Phân tầng trách nhiệm trong truyền đưa thông tin số
+## Câu 1 — Phân tầng trách nhiệm trong truyền đưa thông tin số
 
 Điều 16 quy định tổ chức truyền đưa thông tin số của người khác KHÔNG phải chịu trách nhiệm về nội dung, trừ 3 trường hợp. Hãy phân tích: nếu nhà mạng A tự động định tuyến lại luồng dữ liệu của B sang C vì lý do kỹ thuật (mà không thay đổi nội dung), điều này có rơi vào ngoại lệ "lựa chọn người nhận" hay không? Phân tích từng yếu tố cấu thành của 3 ngoại lệ tại khoản 4.
 
@@ -35,7 +35,7 @@ Luật quy định rõ 3 hành vi ngoại lệ. Tuy nhiên KHÔNG nêu định n
 
 ---
 
-## Câu 22 — Sự bãi bỏ và tác động đến hệ thống pháp lý
+## Câu 2 — Sự bãi bỏ và tác động đến hệ thống pháp lý
 
 Văn bản hợp nhất ghi rõ nhiều điều (ví dụ: Điều 10, khoản 9–12 Điều 4, Mục Chương V về công nghiệp CNTT) đã bị bãi bỏ theo Luật Công nghiệp công nghệ số 71/2025. Hãy phân tích: (a) khoảng trống pháp lý nào xuất hiện nếu Luật CNTS 71/2025 chưa có hiệu lực nhưng Luật CNTT đã bị bãi bỏ các điều đó? (b) nguyên tắc áp dụng Luật CNTT (Điều 3) xử lý xung đột với luật khác như thế nào khi chính luật đó bị sửa đổi?
 
@@ -84,7 +84,7 @@ Luật CNTT ghi nhận việc bãi bỏ các điều khoản với thời điể
 
 ---
 
-## Câu 23 — Đồng ý và không đồng ý trong thu thập thông tin cá nhân
+## Câu 3 — Đồng ý và không đồng ý trong thu thập thông tin cá nhân
 
 Điều 21 cho phép thu thập thông tin cá nhân mà không cần đồng ý trong 3 trường hợp (ký kết hợp đồng, tính cước, thực hiện nghĩa vụ pháp luật). Hãy phân tích: nếu doanh nghiệp thương mại điện tử thu thập thông tin cá nhân khi người dùng mua hàng (có hợp đồng), sau đó dùng thông tin đó để chạy quảng cáo cá nhân hóa — điều này có hợp pháp không theo Điều 21? Đối chiếu với yêu cầu "sử dụng đúng mục đích" tại khoản 2(b).
 
@@ -120,7 +120,7 @@ Luật chưa định nghĩa rõ ràng ranh giới giữa "thực hiện hợp đ
 
 ---
 
-## Câu 24 — Trách nhiệm của cơ quan nhà nước và ranh giới kiểm soát
+## Câu 4 — Trách nhiệm của cơ quan nhà nước và ranh giới kiểm soát
 
 Điều 20 quy định tổ chức, cá nhân KHÔNG phải tự giám sát thông tin của người khác, trừ khi cơ quan có thẩm quyền yêu cầu. Tuy nhiên, Điều 18(3b) yêu cầu doanh nghiệp cho thuê chỗ lưu trữ phải "kịp thời ngăn chặn thông tin trái pháp luật theo yêu cầu". Hỏi: liệu có mâu thuẫn giữa nghĩa vụ bị động (chỉ khi được yêu cầu) và nghĩa vụ chủ động (tự phát hiện, Điều 18(3c))? Luật phân biệt hai nghĩa vụ này như thế nào?
 
@@ -150,7 +150,7 @@ Luật chưa định nghĩa rõ ràng ranh giới giữa "thực hiện hợp đ
 
 ---
 
-## Câu 25 — Liên kết xuyên luật: CNTT, Viễn thông và An ninh mạng
+## Câu 5 — Liên kết xuyên luật: CNTT, Viễn thông và An ninh mạng
 
 Điều 13(3) Luật CNTT yêu cầu "tổ chức, cá nhân tiến hành hoạt động viễn thông trên môi trường mạng phải thực hiện các quy định của pháp luật về viễn thông". Sau khi Luật Viễn thông 24/2023 có hiệu lực (và sửa đổi Luật CNTT), nghĩa vụ này có còn hiệu lực không? Nếu một dịch vụ OTT (như Zalo) vừa bị điều chỉnh bởi Luật CNTT, Luật Viễn thông và Luật An ninh mạng, quy tắc nào xác định luật nào áp dụng ưu tiên?
 
@@ -182,7 +182,7 @@ Luật quy định nguyên tắc ưu tiên Luật Công nghệ thông tin tại 
 
 ---
 
-## Câu 26 — Yêu cầu trang thông tin điện tử và cấu trúc trách nhiệm
+## Câu 6 — Yêu cầu trang thông tin điện tử và cấu trúc trách nhiệm
 
 Theo Điều 23, tổ chức sử dụng tên miền ".vn" KHÔNG cần thông báo với Bộ Bưu chính Viễn thông, nhưng tổ chức dùng tên miền khác thì phải thông báo. Hỏi: (a) sau khi Bộ Bưu chính Viễn thông được tái cơ cấu thành Bộ Thông tin và Truyền thông (và nay có thể là tên khác), cơ quan nào tiếp nhận thông báo? (b) Nếu doanh nghiệp nước ngoài không có ".vn" mà cung cấp dịch vụ tại Việt Nam — nghĩa vụ thông báo có áp dụng không?
 
@@ -211,7 +211,7 @@ Văn bản Luật CNTT (2025) vẫn ghi nhận tên "Bộ Bưu chính, Viễn th
 
 ---
 
-## Câu 27 — Chuỗi trách nhiệm trong dịch vụ hosting và công cụ tìm kiếm
+## Câu 7 — Chuỗi trách nhiệm trong dịch vụ hosting và công cụ tìm kiếm
 
 Doanh nghiệp hosting H phát hiện khách thuê T đang lưu trữ nội dung vi phạm pháp luật. Đồng thời, công cụ tìm kiếm S đang lập chỉ mục (index) nội dung đó. Hãy xác định đầy đủ chuỗi nghĩa vụ pháp lý: (a) H có nghĩa vụ gì theo Điều 18? (b) S có nghĩa vụ gì theo Điều 19? (c) H và S có thể bị xem là "hỗ trợ hoạt động bất hợp pháp" theo Điều 12(1) không? Ai phải hành động trước?
 
@@ -245,7 +245,7 @@ Theo [Luật Công nghệ thông tin (văn bản hợp nhất 2025)] Điều 12,
 
 ---
 
-## Câu 28 — Ưu tiên ứng dụng CNTT trong khẩn cấp và giới hạn của ưu tiên
+## Câu 8 — Ưu tiên ứng dụng CNTT trong khẩn cấp và giới hạn của ưu tiên
 
 Điều 14 cho phép cơ quan có thẩm quyền "huy động một phần hoặc toàn bộ cơ sở hạ tầng thông tin" trong tình huống khẩn cấp. Hỏi: (a) "cơ sở hạ tầng thông tin" theo định nghĩa tại khoản 4 Điều 4 có bao gồm "mạng viễn thông" không? (b) Nếu có, điều này có mâu thuẫn với quyền kinh doanh của doanh nghiệp viễn thông không? (c) Cơ chế bồi thường, nếu có, được quy định ở đâu trong hệ thống pháp lý này?
 
@@ -277,7 +277,7 @@ Trong các văn bản được cung cấp, **không có quy định cụ thể**
 
 ---
 
-## Câu 29 — Quyền yêu cầu đính chính thông tin và giới hạn của quyền
+## Câu 9 — Quyền yêu cầu đính chính thông tin và giới hạn của quyền
 
 Điều 22 cho phép cá nhân yêu cầu "kiểm tra, đính chính hoặc hủy bỏ" thông tin cá nhân. Tuy nhiên, Điều 21(3) cho phép thu thập thông tin mà không cần đồng ý để thực hiện "nghĩa vụ pháp luật". Hỏi: nếu thông tin cá nhân được thu thập theo nghĩa vụ pháp luật (ví dụ: dữ liệu thuế), người dùng có quyền yêu cầu hủy bỏ không? Luật CNTT giải quyết xung đột này như thế nào, và Luật An ninh mạng 116/2025 có quy định nào bổ sung không?
 
@@ -311,7 +311,7 @@ Trong phạm vi văn bản được cung cấp, **không tìm thấy quy định
 
 ---
 
-## Câu 30 — Tích hợp ba luật: tình huống thực tế đa chiều
+## Câu 10 — Tích hợp ba luật: tình huống thực tế đa chiều
 
 Một doanh nghiệp viễn thông Việt Nam (có hạ tầng, thống lĩnh thị trường) vận hành cả: (1) mạng viễn thông công cộng, (2) dịch vụ trung tâm dữ liệu, (3) dịch vụ điện toán đám mây, và (4) nền tảng OTT nhắn tin. Khi bị tấn công mạng làm gián đoạn cả 4 dịch vụ trên, hãy xác định: (a) theo Luật An ninh mạng, hệ thống nào được ưu tiên ứng phó trước nếu đây là hệ thống thông tin quan trọng về an ninh quốc gia? (b) theo Luật Viễn thông, nghĩa vụ "ngừng khẩn cấp" và "cung cấp điểm truy nhập" có mâu thuẫn với nhau trong tình huống tấn công không? (c) theo Luật CNTT, trách nhiệm thông báo và khắc phục của doanh nghiệp là gì?
 
