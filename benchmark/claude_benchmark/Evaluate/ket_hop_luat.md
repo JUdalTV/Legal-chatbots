@@ -1,7 +1,7 @@
 ## ĐÁNH GIÁ CÂU HỎI LIÊN LUẬT (20 câu — 3 Luật đồng thời)
 
-**Phiên bản 3:** Graph + Vector Reasoning  
-**Phiên bản 4:** Vector Reasoning Only (không thinking)  
+**Phiên bản 1:** Graph + Vector Reasoning  
+**Phiên bản 2:** Vector Reasoning Only 
 **Cấu trúc:** 10 nhóm × 2 câu, mỗi nhóm một chủ đề pháp lý xuyên luật
 
 ---
