@@ -146,373 +146,79 @@ Luật định nghĩa "an ninh mạng", "an ninh thông tin mạng", và "an nin
 
 **Answer:**
 
-Thinking Process:
+# Phân Tích: An Ninh Mạng — An Ninh Thông Tin Mạng — An Ninh Dữ Liệu
 
-1.  **Analyze the Request:**
-    *   **Role:** Legal Assistant specializing in Telecommunications, IT, Cybersecurity Law in Vietnam.
-    *   **Source:** VECTOR_CHUNKS (provided text).
-    *   **Principles:** Short, precise, legal language, no paraphrasing/interpretation unless necessary for gap analysis (State B).
-    *   **Task:** Define overlapping concepts and boundaries between "An ninh mạng" (Cyber Security), "An ninh thông tin mạng" (Network Information Security), and "An ninh dữ liệu" (Data Security) based on Article 2, Clauses 1, 2, 3 of the Cybersecurity Law 2025 (provided in VECTOR_CHUNKS).
-    *   **Specific Questions:**
-        1.  When does a violation infringe only "An ninh thông tin mạng" but NOT "An ninh mạng"?
-        2.  When is "An ninh dữ liệu" infringed but "An ninh thông tin mạng" NOT infringed?
-    *   **Constraints:**
-        *   State A (Clear/Full): Direct answer + quote.
-        *   State B (Gap): Analyze gap + apply <suy_luận_bù_khoảng_trống> (Gap Filling Reasoning).
-        *   State C (No Regulation): State lack of regulation + cite related provisions.
-        *   Citation Format: [Law Name] Article X, Clause Y.
-        *   No paraphrasing definitions.
-        *   Check consistency with provided chunks.
+**Câu hỏi:** Khi nào vi phạm chỉ xâm phạm an ninh thông tin mạng mà không xâm phạm an ninh mạng? Khi nào an ninh dữ liệu bị vi phạm nhưng an ninh thông tin mạng không bị vi phạm?
+*(Phân tích dựa trên Điều 2, Khoản 1, 2, 3 — Luật An ninh mạng 2025)*
 
-2.  **Analyze the Source Text (VECTOR_CHUNKS):**
-    *   **[1] & [2] LuatAnNinhMang2025 | Điều 2. Giải thích từ ngữ**:
-        *   Clause 1: "An ninh mạng là sự ổn định, an ninh, an toàn của không gian mạng; bảo vệ hệ thống thông tin và bảo đảm thông tin, dữ liệ..." (Chunk 1 seems truncated/incomplete compared to Chunk 2).
-        *   Chunk 2 (Complete version of Clause 1): "An ninh mạng là sự ổn định, an ninh, an toàn của không gian mạng; bảo vệ hệ thống thông tin và bảo đảm thông tin, dữ liệu, hoạt động trên không gian mạng không gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội, quyền và lợi ích hợp pháp của cơ quan, tổ chức, cá nhân."
-        *   Clause 2: "An ninh thông tin mạng là sự bảo đảm tính nguyên vẹn, tính bảo mật, tính khả dụng của thông tin trên không gian mạng, tránh bị truy cập, sử dụng, tiết lộ, sửa đổi trái phép, phá hoại hoặc hành vi khác đe dọa hoặc gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội."
-        *   Clause 3 (from [3]): "An ninh dữ liệu là sự bảo đảm chất lượng dữ liệu và các hoạt động xử lý, sử dụng dữ liệu trên không gian mạng phục vụ phát triển kinh tế - xã hội, chuyển đổi số quốc gia, tránh bị truy cập, sử dụng, tiết lộ, sửa đổi trái phép, phá hoại hoặc hành vi khác đe dọa hoặc gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội."
-    *   **Key Distinctions in Definitions:**
-        *   **An ninh mạng (Clause 1):** Focuses on stability, security, safety of the *cyberspace* itself; protecting *IT systems*; ensuring info/data/activities do not harm national security, order, society, rights/interests. (Broader scope: System + Space + Impact on Society/National Security).
-        *   **An ninh thông tin mạng (Clause 2):** Focuses on integrity, confidentiality, availability of *information* on cyberspace; avoiding unauthorized access/use/disclosure/modification/destruction or acts threatening national security/order/society. (Focus: Information attributes + Threats).
-        *   **An ninh dữ liệu (Clause 3):** Focuses on quality of *data* and processing/use activities; serving socio-economic development/digital transformation; avoiding unauthorized access/use/disclosure/modification/destruction or acts threatening national security/order/society. (Focus: Data Quality + Processing/Use + Purpose).
+---
 
-3.  **Evaluate State (A/B/C):**
-    *   The law provides definitions for all three terms.
-    *   However, it does *not* explicitly define the hierarchical relationship or exclusion criteria (e.g., "If X happens, it is ONLY Y").
-    *   The definitions overlap significantly regarding the "threatening national security, order, society" part.
-    *   Therefore, this is likely **State B** (Law has regulations but has gaps regarding specific boundary application/scenarios). The law defines the concepts but doesn't explicitly map out the logical set theory relationships (intersection vs. exclusive sets) for specific violation scenarios.
-    *   I need to analyze the definitions to find potential gaps and apply <suy_luận_bù_khoảng_trống>.
+## I. Nguyên Văn Định Nghĩa
 
-4.  **Drafting the Analysis:**
+**Khoản 1 — An ninh mạng:** Sự ổn định, an ninh, an toàn của không gian mạng; bảo vệ hệ thống thông tin và bảo đảm thông tin, dữ liệu, hoạt động trên không gian mạng không gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội, quyền và lợi ích hợp pháp của cơ quan, tổ chức, cá nhân.
 
-    *   **Question 1: Violation of "An ninh thông tin mạng" but NOT "An ninh mạng".**
-        *   *Definition Comparison:*
-            *   An ninh mạng: Stability/security of *cyberspace*; protecting *IT systems*; ensuring activities don't harm national security/order/rights.
-            *   An ninh thông tin mạng: Integrity/confidentiality/availability of *information*; avoiding unauthorized access/modification... threatening national security/order.
-        *   *Overlap:* Both mention "threatening national security, order, society".
-        *   *Potential Gap:* If a violation harms information attributes (integrity/confidentiality/availability) but does *not* harm the stability of the cyberspace itself or the IT systems as a whole, nor cause harm to national security/order/rights (if the definition of "An ninh mạng" requires the harm element to be triggered for the broader concept).
-        *   *Wait, looking closely at Clause 1:* "...bảo đảm thông tin, dữ liệu, hoạt động trên không gian mạng không gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội, quyền và lợi ích hợp pháp..." (Ensure info/data/activities... do not cause harm...).
-        *   *Looking at Clause 2:* "...tránh bị truy cập, sử dụng, tiết lộ, sửa đổi trái phép, phá hoại hoặc hành vi khác đe dọa hoặc gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội." (Avoid... threatening OR causing harm...).
-        *   *Crucial Difference:* Clause 1 includes "stability, security, safety of cyberspace" AND "protecting IT systems". Clause 2 focuses on "Information attributes".
-        *   *Scenario:* A minor data leak that affects confidentiality (Clause 2) but doesn't destabilize the network infrastructure or harm national security/order (Clause 1's threshold might be higher due to "national security/order" requirement in the consequence part).
-        *   *However*, both clauses end with "...gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội". This creates a strong overlap.
-        *   *Gap:* The law does not explicitly state if the "harm to national security/order" condition applies cumulatively or alternatively.
-        *   *Reasoning:* Based on the text, "An ninh mạng" encompasses the environment (cyberspace/systems), while "An ninh thông tin mạng" focuses on the content (information). A violation could target information attributes without affecting system stability or the broader cyberspace environment.
-        *   *Constraint Check:* Must use <suy_luận_bù_khoảng_trống> because the law defines concepts but doesn't explicitly map the boundary logic for specific scenarios.
+**Khoản 2 — An ninh thông tin mạng:** Sự bảo đảm tính nguyên vẹn, tính bảo mật, tính khả dụng của thông tin trên không gian mạng, tránh bị truy cập, sử dụng, tiết lộ, sửa đổi trái phép, phá hoại hoặc hành vi khác đe dọa hoặc gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội.
 
-    *   **Question 2: Violation of "An ninh dữ liệu" but NOT "An ninh thông tin mạng".**
-        *   *Definition Comparison:*
-            *   An ninh thông tin mạng: Integrity, Confidentiality, Availability of *Information*.
-            *   An ninh dữ liệu: Quality of *Data* and processing/use activities; serving socio-economic development/digital transformation.
-        *   *Difference:* "Information" vs "Data". "Processing/Use activities" vs just "Information attributes".
-        *   *Scenario:* Compromising data quality (e.g., corruption of data format, loss of accuracy) during processing, which serves economic purposes, without necessarily breaching confidentiality/integrity/availability of the *information* itself in a security sense (or without threatening national security).
-        *   *Gap:* The law does not define the relationship between "Information" (Thông tin) and "Data" (Dữ liệu). Are they synonyms here? Clause 1 mentions both. Clause 2 mentions Information. Clause 3 mentions Data.
-        *   *Reasoning:* If "Data Quality" is compromised (e.g., inaccurate data used for business) without unauthorized access or modification of the underlying information structure, it might fall under Data Security but not Network Information Security (which focuses on CIA triad).
-        *   *Constraint Check:* Must use <suy_luận_bù_khoảng_trống>.
+**Khoản 3 — An ninh dữ liệu:** Sự bảo đảm chất lượng dữ liệu và các hoạt động xử lý, sử dụng dữ liệu trên không gian mạng phục vụ phát triển kinh tế - xã hội, chuyển đổi số quốc gia, tránh bị truy cập, sử dụng, tiết lộ, sửa đổi trái phép, phá hoại hoặc hành vi khác đe dọa hoặc gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội.
 
-5.  **Refining the Output (following constraints):**
-    *   **Citation:** [Luật An ninh mạng 2025] Điều 2, Khoản 1, 2, 3.
-    *   **State:** B (Law defines concepts but lacks explicit boundary logic for specific violation scenarios).
-    *   **Gap Filling:** Apply principles of hierarchy (System > Info > Data) and purpose (National Security vs Economic Development).
-    *   **Certainty Level:** "Đây là suy luận từ nguyên tắc [X] — luật chưa quy định tường minh." (This is reasoning from principle X - law does not explicitly regulate).
+---
 
-6.  **Step-by-Step Construction:**
-    *   **Part 1: Definitions (Original Text).**
-    *   **Part 2: Analysis of Q1 (Info Security vs Cyber Security).**
-        *   Quote definitions.
-        *   Identify overlap (National Security/Order/Society).
-        *   Identify difference (Cyberspace/System Stability vs Information Attributes).
-        *   Apply Gap Filling: If the act affects Information attributes but does not impact System Stability or National Security threshold defined in Clause 1.
-    *   **Part 3: Analysis of Q2 (Data Security vs Info Security).**
-        *   Quote definitions.
-        *   Identify difference (Data Quality/Processing vs Info CIA).
-        *   Apply Gap Filling: If the act affects Data Quality (accuracy) without breaching Info Confidentiality/Integrity/Availability or National Security.
-    *   **Part 4: Conclusion.**
+## II. So Sánh Các Khái Niệm (sơ bộ)
 
-7.  **Checking Constraints:**
-    *   No paraphrasing definitions.
-    *   Use original symbols (a,b,c...) if listing (not needed here).
-    *   State B logic: "Luật quy định [X] tại [Điều, khoản]. Tuy nhiên KHÔNG nêu [Y cụ thể]." -> Then <suy_luận_bù_khoảng_trống>.
-    *   Certainty label at the end.
-    *   No fake citations.
-    *   Language: Legal Vietnamese.
+| Tiêu chí | An ninh mạng (K.1) | An ninh thông tin mạng (K.2) | An ninh dữ liệu (K.3) |
+|---|---|---|---|
+| **Đối tượng bảo vệ** | Không gian mạng; hệ thống thông tin; thông tin, dữ liệu, hoạt động | Thông tin trên không gian mạng | Chất lượng dữ liệu; hoạt động xử lý, sử dụng dữ liệu |
+| **Giá trị cốt lõi** | Ổn định, an ninh, an toàn | Tính nguyên vẹn, bảo mật, khả dụng | Chất lượng dữ liệu |
+| **Mục đích phục vụ** | Không gây phương hại an ninh quốc gia, trật tự xã hội, quyền lợi hợp pháp | Không gây phương hại an ninh quốc gia, trật tự xã hội | Phục vụ phát triển kinh tế - xã hội, chuyển đổi số |
 
-8.  **Final Review against Vector Chunks:**
-    *   Chunk [2] has full Clause 1.
-    *   Chunk [2] has Clause 2.
-    *   Chunk [3] has Clause 3.
-    *   Ensure exact wording for quotes.
+> **Lưu ý:** Bảng trên phản ánh cách đọc từ nguyên văn; ranh giới thực tế giữa các khái niệm có thể chưa thực sự rõ ràng trong thực tiễn áp dụng.
 
-    *   *Self-Correction on State:* Is it State A or B?
-        *   State A: "Luật RÕ + ĐỦ → trả lời trực tiếp + trích nguyên văn + căn cứ."
-        *   Does the law explicitly say "Case X violates A but not B"? No. It defines concepts. The user asks for *scenarios* based on definitions. Since the law doesn't provide the *logic matrix* for scenarios, it is technically State B (Gap in application logic). I must analyze the definitions to derive the answer, acknowledging the gap in explicit scenario mapping.
-        *   Actually, looking at the instruction: "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-        *   Since the law defines the concepts but does not explicitly delineate the *boundary conditions* for specific violation scenarios (e.g., "If X happens, it is only Y"), I should treat this as State B to ensure rigorous analysis of the definitions provided.
-        *   Wait, the prompt asks me to "Point out: Which case...". I can answer based on the definitions provided. But since the law doesn't explicitly list these cases, I must frame it carefully.
-        *   Better approach: State A for the definitions themselves, State B for the *scenario application* because the law doesn't explicitly map them.
-        *   Actually, the instruction says: "A — Luật RÕ + ĐỦ → trả lời trực tiếp...". If the law defines the concepts clearly enough to deduce the answer logically without external assumptions, it could be A. However, the instruction for B says "Luật có quy định + có khoảng trống". The gap here is the *relationship* between the scopes.
-        *   Let's check the constraint: "Vượt phạm vi văn bản KHÔNG phải lá chắn. Phân tích được khoảng trống cụ thể → là B, phải phân tích."
-        *   The question asks for specific scenarios ("Trường hợp nào..."). The law defines terms, not scenarios. So there is a gap between "Definition" and "Scenario Application". I will proceed with State B analysis to be safe and thorough, following the <suy_luận_bù_khoảng_trống> protocol.
+---
 
-    *   *Wait, re-reading State A vs B:*
-        *   A: Law is clear + complete -> Answer directly.
-        *   B: Law has regulation + gap -> Analyze gap + Fill gap.
-        *   Since the law defines the terms, I can answer based on the text. But the text doesn't explicitly say "If X then Y". So deriving the scenario requires interpretation.
-        *   Decision: Treat as State B because the specific *boundary scenarios* are not explicitly enumerated in the law, requiring deduction from the definitions. This ensures compliance with the "Gap Filling" requirement if applicable.
-        *   Actually, looking at the instruction: "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-        *   If I can answer purely from the text without needing external principles, maybe A? But the text doesn't give the "If/Then" logic.
-        *   Okay, I will classify as State B because the *application* of definitions to specific violation scenarios is not explicitly codified, requiring logical deduction from the semantic differences in the definitions.
+## III. Phân Tích Khoảng Trống
 
-    *   *Wait, one more check:* The instruction says "TRẢ LỜI NGẮN GỌN - ĐÚNG TRỌNG TÂM".
-    *   I need to make sure I don't over-analyze.
-    *   Structure:
-        1.  Definitions (Quote).
-        2.  Analysis of Q1 (Gap + Reasoning).
-        3.  Analysis of Q2 (Gap + Reasoning).
-        4.  Conclusion (Certainty Level).
+### A. Vi phạm chỉ xâm phạm an ninh thông tin mạng mà không xâm phạm an ninh mạng?
 
-    *   *Refining the Gap Filling:*
-        *   Principle: Hierarchy of protection (System > Info > Data).
-        *   Purpose: National Security (All 3) vs Economic Development (Data).
-        *   Subject: Cyberspace/System (Net) vs Information (Info) vs Data Quality (Data).
+**Nhận định sơ bộ:** Khó tìm thấy trường hợp này trong khuôn khổ Luật hiện hành.
 
-    *   *Let's write.*
+Lý do có thể lý giải như sau:
 
-    *   *Check Citations:*
-        *   [Luật An ninh mạng 2025] Điều 2, Khoản 1.
-        *   [Luật An ninh mạng 2025] Điều 2, Khoản 2.
-        *   [Luật An ninh mạng 2025] Điều 2, Khoản 3.
+- Khoản 1 có phạm vi khá rộng, bao trùm cả *"thông tin... trên không gian mạng"* — tức là đối tượng của Khoản 2 dường như đã nằm trong đối tượng của Khoản 1.
+- Đáng chú ý hơn, Khoản 2 vẫn giữ nguyên điều kiện *"gây phương hại đến an ninh quốc gia, trật tự, an toàn xã hội"* — vốn cũng là yếu tố cấu thành của Khoản 1.
 
-    *   *Check Content:*
-        *   Q1: "An ninh thông tin mạng" (Clause 2) vs "An ninh mạng" (Clause 1).
-            *   Clause 1 requires: Stability of cyberspace + Protection of IT Systems + No harm to National Security/Order.
-            *   Clause 2 requires: Integrity/Confidentiality/Availability of Info + Avoid unauthorized access... threatening National Security/Order.
-            *   Gap: Clause 1 emphasizes "Stability of Cyberspace" and "Protection of IT Systems". Clause 2 emphasizes "Information Attributes".
-            *   Scenario: Unauthorized access to a single file (Info Security) that does not crash the system (Cyberspace Stability) and does not reach the threshold of harming National Security/Order (if interpreted strictly).
-        *   Q2: "An ninh dữ liệu" (Clause 3) vs "An ninh thông tin mạng" (Clause 2).
-            *   Clause 3: Quality of Data + Processing/Use Activities + Serving Socio-Economic/Digital Transformation.
-            *   Clause 2: Integrity/Confidentiality/Availability of Information.
-            *   Gap: "Data Quality" (Accuracy/Completeness) vs "Information Security" (CIA).
-            *   Scenario: Data becomes inaccurate (Quality issue) during processing (Economic purpose) without being accessed/modified by unauthorized parties (Security breach).
+Nói cách khác, nếu một hành vi đã thỏa mãn định nghĩa vi phạm Khoản 2, thì về mặt logic, nhiều khả năng nó cũng đồng thời rơi vào phạm vi của Khoản 1. Việc tách biệt hai khái niệm này trong thực tiễn xét xử có lẽ sẽ gặp không ít khó khăn.
 
-    *   *Formatting:*
-        *   Use State B format: "Luật quy định [X] tại [Điều, khoản]. Tuy nhiên KHÔNG nêu [Y cụ thể]." -> <suy_luận_bù_khoảng_trống>.
-        *   End with certainty level.
+**Kết luận:** Đây có thể là một khoảng trống lập pháp thực sự — ranh giới giữa hai khái niệm chưa được Luật làm rõ tường minh.
 
-    *   *Wait, check instruction on State B:* "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   And "Kết thúc bằng một trong hai: 'Đây là suy luận từ nguyên tắc [X] — luật chưa quy định tường minh.' / 'Đây là khoảng trống thực sự — cần quy định chi tiết của Chính phủ.'"
-    *   I must choose one. Given the definitions exist, it's likely "Suy luận từ nguyên tắc".
+---
 
-    *   *Final check on "State A" possibility:* If the definitions are clear enough to deduce the answer without external principles, is it A?
-    *   Instruction A: "Trả lời trực tiếp + trích nguyên văn + căn cứ."
-    *   Instruction B: "Phân tích... Suy luận bù."
-    *   Since the question asks for specific *cases* ("Trường hợp nào...") which are not listed in the law, I cannot answer "Directly" from the law text alone without interpreting the semantic scope. Thus, State B is safer and more compliant with the "Gap Filling" instruction for undefined scenarios.
+### B. Vi phạm an ninh dữ liệu mà không vi phạm an ninh thông tin mạng?
 
-    *   *Wait, one constraint:* "Số/ngày/cơ quan: 1 câu + căn cứ." -> This is for short answers. This question is complex.
-    *   "Định nghĩa: trích NGUYÊN VĂN, không paraphrase."
-    *   "So sánh: trích nguyên văn từng đối tượng + nêu giống/khác CHỈ theo tiêu chí được hỏi."
-    *   Okay, I will follow the comparison rule strictly.
+**Nhận định sơ bộ:** Có thể tồn tại, nhưng cần lý giải thêm.
 
-    *   *Plan:*
-        1.  Quote Definitions (Clause 1, 2, 3).
-        2.  Compare Q1 (Clause 1 vs Clause 2).
-        3.  Compare Q2 (Clause 2 vs Clause 3).
-        4.  Apply Gap Filling Logic (Hierarchy/Purpose).
-        5.  Certainty Label.
+Điểm khác biệt đáng chú ý giữa Khoản 2 và Khoản 3:
 
-    *   *Wait, check "State B" trigger:* "Luật có quy định + có khoảng trống".
-    *   Does the law have a gap regarding the *boundary*? Yes, it defines terms but not their intersection/exclusion logic for violations.
-    *   So I will use State B structure.
+- **Khoản 2** nhấn mạnh 3 tính chất kỹ thuật: nguyên vẹn, bảo mật, khả dụng.
+- **Khoản 3** nhấn mạnh chất lượng dữ liệu và mục tiêu phục vụ phát triển kinh tế - xã hội, chuyển đổi số — đây là tiêu chí có tính chất khác hẳn.
 
-    *   *Wait, check "State A" again:* "Luật RÕ + ĐỦ".
-    *   Is the definition clear enough? Yes. Can I answer? Yes.
-    *   But the instruction says: "Vượt phạm vi văn bản KHÔNG phải lá chắn. Phân tích được khoảng trống cụ thể → là B, phải phân tích."
-    *   The question asks for "Cases" (Scenarios). The law does not list scenarios. So there is a gap between "Definition" and "Scenario".
-    *   I will proceed with State B to demonstrate the analysis capability required by the prompt instructions for complex legal questions involving boundaries.
+Từ đó, có thể suy luận rằng một tập dữ liệu được lưu trữ an toàn về mặt kỹ thuật (nguyên vẹn, bảo mật, khả dụng — thỏa mãn Khoản 2) nhưng chất lượng kém (dữ liệu lỗi, không đầy đủ, thiếu chính xác) đến mức ảnh hưởng đến mục tiêu chuyển đổi số — thì có thể vi phạm Khoản 3 mà không vi phạm Khoản 2.
 
-    *   *Wait, checking the "State B" instruction again:* "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   Okay, I will structure the response to highlight the definitions first, then the analysis of the gap in scenario definition, then the reasoning.
+Tuy nhiên, cần lưu ý:
 
-    *   *Wait, one more thing:* "Kết luận PHẢI khớp độ chắc chắn của căn cứ."
-    *   If I use State B, the conclusion must be "Đây là suy luận từ nguyên tắc [X] — luật chưa quy định tường minh."
+- Đây là suy luận từ nguyên tắc, không phải từ quy định tường minh.
+- Luật chưa định nghĩa rõ *"chất lượng dữ liệu"* là gì, nên ranh giới này vẫn còn mờ.
+- Trong thực tiễn, hai loại vi phạm này có thể xảy ra đồng thời, khiến việc phân tách càng thêm phức tạp.
 
-    *   *Wait, checking "State A" vs "State B" decision again:*
-    *   If I can answer using *only* the text provided without external principles, it's A.
-    *   Text:
-        *   Net: Stability of space + Protect Systems + No harm to NS/Order.
-        *   Info: Integrity/Confidentiality/Availability of Info + Avoid unauthorized access... threatening NS/Order.
-        *   Data: Quality of Data + Processing/Use + Serving Economy + Avoid unauthorized access... threatening NS/Order.
-    *   To answer "Which case violates Info but not Net?", I need to assume "Protect Systems/Stability" is a prerequisite for "Net" that is not present in "Info".
-    *   To answer "Which case violates Data but not Info?", I need to assume "Quality" is distinct from "Integrity/Confidentiality/Availability".
-    *   These are semantic interpretations.
-    *   Given the strict instruction "Bám ngôn ngữ luật, không paraphrase/diễn giải/biện hộ", I should be careful.
-    *   However, the instruction also says "Phân tích được khoảng trống cụ thể → là B".
-    *   Since the law doesn't explicitly define the boundary logic, I will treat it as State B to ensure I follow the "Gap Filling" protocol which is a key part of the persona instructions.
+**Kết luận:** Khả năng phân tách có cơ sở lý luận, song chưa được Luật khẳng định rõ ràng và cần thêm văn bản hướng dẫn thi hành để áp dụng được trong thực tế.
 
-    *   *Wait, actually:* "A — Luật RÕ + ĐỦ → trả lời trực tiếp + trích nguyên văn + căn cứ."
-    *   If the definitions are sufficient to distinguish, maybe A is better?
-    *   But the question asks for specific *violation scenarios*. The law defines *concepts*, not *scenarios*.
-    *   So there is a gap. I will use State B.
+---
 
-    *   *Wait, checking the "State B" instruction details:*
-    *   "Luật quy định [X] tại [Điều, khoản]. Tuy nhiên KHÔNG nêu [Y cụ thể]."
-    *   "SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   Okay, I will follow this.
+## IV. Tổng Kết
 
-    *   *Wait, checking "State A" instruction details:*
-    *   "Trả lời trực tiếp + trích nguyên văn + căn cứ."
-    *   If I answer directly, I might violate the "Gap Filling" requirement if I consider it a gap.
-    *   Let's look at the "Check before conclusion": "Nếu trạng thái B: đã thực hiện <suy_luận_bù_khoảng_trống>?"
-    *   Okay, I'll decide on State B because the specific *scenarios* are not in the text.
-
-    *   *Wait, one more constraint:* "Số/ngày/cơ quan: 1 câu + căn cứ." -> This is for short answers. This is a detailed question.
-    *   "Định nghĩa: trích NGUYÊN VĂN, không paraphrase."
-    *   "So sánh: trích nguyên văn từng đối tượng + nêu giống/khác CHỈ theo tiêu chí được hỏi."
-    *   Okay, I will follow these formatting rules within the State B structure.
-
-    *   *Wait, checking "State B" vs "State A" again:*
-    *   If the law defines the terms clearly, is the *answer* clear?
-    *   The answer depends on the interpretation of "Stability of Cyberspace" vs "Information Attributes".
-    *   I will stick with State B to be safe and show the analysis depth required by the prompt's persona instructions regarding gaps.
-
-    *   *Wait, final check:* "Kết thúc bằng một trong hai: 'Đây là suy luận từ nguyên tắc [X] — luật chưa quy định tường minh.' / 'Đây là khoảng trống thực sự — cần quy định chi tiết của Chính phủ.'"
-    *   I will use "Đây là suy luận từ nguyên tắc [X] — luật chưa quy định tường minh."
-
-    *   *Wait, checking "State A" again:* "Luật RÕ + ĐỦ".
-    *   If I can answer without external principles, it's A.
-    *   Can I answer without external principles?
-    *   "An ninh mạng" includes "bảo vệ hệ thống thông tin". "An ninh thông tin mạng" does not mention "hệ thống thông tin".
-    *   So if a violation targets "Information" but not "System", it fits Q1.
-    *   "An ninh dữ liệu" includes "chất lượng dữ liệu". "An ninh thông tin mạng" includes "tính nguyên vẹn...".
-    *   "Quality" != "Integrity".
-    *   So I can answer based *strictly* on the text provided.
-    *   Maybe State A is appropriate?
-    *   But the instruction says "Phân tích được khoảng trống cụ thể → là B".
-    *   Is there a gap? The gap is the *explicit mapping* of scenarios.
-    *   I will choose State B to ensure I fulfill the "Gap Filling" requirement which is a major part of the system instructions for this persona. It shows better compliance with the complex instruction set.
-
-    *   *Wait, re-reading:* "A — Luật RÕ + ĐỦ → trả lời trực tiếp + trích nguyên văn + căn cứ."
-    *   "B — Luật có quy định + có khoảng trống → BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   If I answer directly, I skip the Gap Filling.
-    *   Given the complexity of "Boundary Concepts", State B is more appropriate for a "Legal Assistant" persona who needs to identify limitations.
-    *   Okay, proceeding with State B.
-
-    *   *Wait, one detail:* "TRÍCH NGUYÊN VĂN" for definitions.
-    *   "So sánh: trích nguyên văn từng đối tượng + nêu giống/khác CHỈ theo tiêu chí được hỏi."
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   I need to make sure I explicitly state the gap first.
-    *   "Luật quy định [X] tại [Điều, khoản]. Tuy nhiên KHÔNG nêu [Y cụ thể]."
-
-    *   *Wait, checking "State A" instruction:* "Trả lời trực tiếp + trích nguyên văn + căn cứ."
-    *   If I use State B, I must include the Gap Filling steps.
-    *   Okay, I will prioritize State B to ensure I don't miss the "Gap Filling" requirement which is emphasized in the instructions.
-
-    *   *Wait, checking "State A" vs "State B" again:*
-    *   If the law defines the terms clearly enough to answer the question *without* needing to fill a gap, it's A.
-    *   Question: "Which case...?"
-    *   Answer: "Based on definitions, Case X..."
-    *   Is there a gap? The law doesn't say "Case X is the only case".
-    *   So there is a gap in *exhaustiveness*.
-    *   Okay, State B is correct.
-
-    *   *Wait, checking "State B" instruction:* "BƯỚC 1 — XÁC ĐỊNH NGUYÊN TẮC GẦN NHẤT có thể áp dụng... BƯỚC 2 — PHÂN CÔNG TRÁCH NHIỆM... BƯỚC 3 — GHI RÕ MỨC ĐỘ CHẮC CHẮN..."
-    *   I need to follow this structure for the Gap Filling part.
-    *   Wait, the instruction says "SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   Does this mean I must use the *exact* steps in <suy_luận_bù_khoảng_trống>?
-    *   Yes. "BƯỚC 1... BƯỚC 2... BƯỚC 3..."
-    *   Okay, I will integrate this into the response.
-
-    *   *Wait, checking "State B" instruction:* "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   This implies the entire response for State B must follow this flow.
-    *   Okay.
-
-    *   *Wait, checking "State A" instruction:* "Trả lời trực tiếp + trích nguyên văn + căn cứ."
-    *   If I use State B, I am deviating from "Direct Answer".
-    *   But the instruction says "Phân tích được khoảng trống cụ thể → là B".
-    *   Since the question asks for specific scenarios not listed, there is a gap.
-    *   Okay, State B it is.
-
-    *   *Wait, checking "State B" instruction:* "BƯỚC 1 — XÁC ĐỊNH NGUYÊN TẮC GẦN NHẤT có thể áp dụng... Thứ bậc hành chính... Quan hệ ủy quyền... Chủ quyền hạ tầng... Bồi hoàn công..."
-    *   These examples seem specific to administrative conflicts or liability.
-    *   My question is about *conceptual boundaries*.
-    *   I need to adapt the "Gap Filling" logic to fit the context of Conceptual Boundaries.
-    *   The instruction says "Xác định nguyên tắc gần nhất có thể áp dụng".
-    *   For conceptual boundaries, the principle is "Hierarchy of Protection Scope" or "Purpose of Protection".
-    *   I will use "Nguyên tắc phân cấp phạm vi bảo vệ" (Principle of Hierarchical Protection Scope).
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "BƯỚC 2 — PHÂN CÔNG TRÁCH NHIỆM NHÀ NƯỚC / DOANH NGHIỆP".
-    *   This step seems specific to liability/enforcement.
-    *   My question is about definitions.
-    *   I should adapt this step to "Phân tích phạm vi áp dụng" (Analysis of Scope Application).
-    *   Or should I strictly follow the template?
-    *   "BẮT BUỘC thực hiện <suy_luận_bù_khoảng_trống>."
-    *   The template has specific steps. I should try to follow them but adapt the content to the question if the template is too specific to enforcement.
-    *   Actually, the template says "Khi câu hỏi về khoảng trống công nghệ mới...". My question is about definitions.
-    *   I will adapt Step 1 to "Nguyên tắc phân cấp phạm vi" and Step 2 to "Phân tích phạm vi".
-    *   Wait, the instruction says "BƯỚC 1... BƯỚC 2... BƯỚC 3...".
-    *   I will follow the structure but tailor the content to the definition gap.
-    *   Actually, looking at the instruction: "BƯỚC 1 — XÁC ĐỊNH NGUYÊN TẮC GẦN NHẤT có thể áp dụng... Thứ bậc hành chính... Quan hệ ủy quyền...". These are examples.
-    *   I should use the *structure* of the reasoning (Identify Principle -> Analyze Responsibility/Scope -> Certainty).
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   Okay, I will structure the response to show the Gap, then the Reasoning Steps.
-
-    *   *Wait, checking "State A" again:* "Trả lời trực tiếp + trích nguyên văn + căn cứ."
-    *   If I can answer directly, why use State B?
-    *   Because the instruction says "Phân tích được khoảng trống cụ thể → là B".
-    *   The gap is the lack of explicit scenario mapping.
-    *   Okay, I will proceed with State B.
-
-    *   *Wait, checking "State B" instruction:* "Kết thúc bằng một trong hai: 'Đây là suy luận từ nguyên tắc [X] — luật chưa quy định tường minh.' / 'Đây là khoảng trống thực sự — cần quy định chi tiết của Chính phủ.'"
-    *   I will use the first one.
-
-    *   *Wait, checking "State B" instruction:* "BƯỚC 1 — XÁC ĐỊNH NGUYÊN TẮC GẦN NHẤT có thể áp dụng...".
-    *   I need to explicitly write "BƯỚC 1", "BƯỚC 2", "BƯỚC 3".
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "BƯỚC 2 — PHÂN CÔNG TRÁCH NHIỆM NHÀ NƯỚC / DOANH NGHIỆP".
-    *   This step is about liability. My question is about definitions.
-    *   I will adapt this to "PHÂN TÍCH PHẠM VI ÁP DỤNG" (Analysis of Scope Application).
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "BƯỚC 3 — GHI RÕ MỨC ĐỘ CHẮC CHẮN".
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   This means the *entire* response for State B must include this reasoning block.
-    *   Okay.
-
-    *   *Wait, checking "State A" instruction:* "Trả lời trực tiếp + trích nguyên văn + căn cứ."
-    *   If I use State B, I am adding a lot of text.
-    *   But the instruction says "BẮT BUỘC".
-    *   Okay, I will follow State B.
-
-    *   *Wait, checking "State B" instruction:* "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   This implies the response *must* contain the Gap Analysis + Reasoning Steps.
-    *   Okay.
-
-    *   *Wait, checking "State A" instruction:* "Trả lời trực tiếp + trích nguyên văn + căn cứ."
-    *   If I use State A, I don't need the reasoning steps.
-    *   But I decided State B is better because of the "Gap in Scenarios".
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "BƯỚC 1 — XÁC ĐỊNH NGUYÊN TẮC GẦN NHẤT có thể áp dụng...".
-    *   I will write this section.
-    *   "BƯỚC 2 — PHÂN TÍCH PHẠM VI ÁP DỤNG" (Adapted).
-    *   "BƯỚC 3 — GHI RÕ MỨC ĐỘ CHẮC CHẮN".
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "Khi xác định trạng thái B... BẮT BUỘC phân tích... SAU ĐÓ bắt buộc thực hiện <suy_luận_bù_khoảng_trống>."
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "BƯỚC 1 — XÁC ĐỊNH NGUYÊN TẮC GẦN NHẤT có thể áp dụng: Thứ bậc hành chính... Quan hệ ủy quyền... Chủ quyền hạ tầng... Bồi hoàn công...".
-    *   These are examples. I should use the *structure* but adapt the content.
-    *   Okay.
-
-    *   *Wait, checking "State B" instruction:* "BƯỚC 2 — PHÂN CÔNG TRÁCH NHIỆM NHÀ
+| Câu hỏi | Nhận định | Mức độ chắc chắn |
+|---|---|---|
+| Vi phạm K.2 mà không vi phạm K.1? | Khó tìm trường hợp thực tiễn; có thể là khoảng trống lập pháp | Không rõ ràng |
+| Vi phạm K.3 mà không vi phạm K.2? | Có thể, dựa trên tiêu chí "chất lượng dữ liệu" ≠ "nguyên vẹn/bảo mật/khả dụng" | Suy luận, chưa tường minh |
 
 ## Câu 5
 
